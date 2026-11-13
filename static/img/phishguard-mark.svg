@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110" role="img" aria-labelledby="title">
+  <title id="title">PhishGuard AI shield</title>
+  <path fill="#174f86" d="M50 3 94 18v34c0 27-16 45-44 55C22 97 6 79 6 52V18z"/>
+  <path fill="#27a88d" d="M50 3 94 18v34c0 27-16 45-44 55z"/>
+  <path fill="#f7fbf9" d="M50 12 85 24v28c0 22-13 37-35 46-22-9-35-24-35-46V24z"/>
+  <g fill="none" stroke="#a8d7b8" stroke-linecap="round" stroke-width="3">
+    <path d="m24 37 17 10 18-21 17 18-9 24-19 13-16-16 9-18"/>
+    <path d="m24 37 8 28 24 16 15-13 9-24"/>
+  </g>
+  <g fill="#a8d7b8">
+    <circle cx="24" cy="37" r="4"/><circle cx="41" cy="47" r="4"/>
+    <circle cx="59" cy="26" r="4"/><circle cx="76" cy="44" r="4"/>
+    <circle cx="32" cy="65" r="4"/><circle cx="56" cy="81" r="4"/>
+    <circle cx="71" cy="68" r="4"/>
+  </g>
+  <path d="M37 67 31 73a8 8 0 0 0 11 11l8-8M63 43l6-6a8 8 0 0 1 11 11l-8 8" fill="none" stroke="#27a88d" stroke-linecap="round" stroke-width="7"/>
+  <circle cx="50" cy="54" r="15" fill="#fff" stroke="#174f86" stroke-width="3"/>
+  <text x="50" y="61" fill="#173b67" font-family="Arial,sans-serif" font-size="22" font-weight="700" text-anchor="middle">@</text>
+</svg>
