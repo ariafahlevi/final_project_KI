@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}AI Analysis · PhishGuard AI{% endblock %}{% block crumb %}AI Analysis{% endblock %}
+{% block content %}
+<div class="page-intro"><div class="eyebrow">AI-POWERED INSIGHT</div><h1>Memahami hasil <span>lebih dalam.</span></h1><p class="muted">Penjelasan tambahan dari model bahasa lokal Ollama berdasarkan hasil klasifikasi.</p></div>
+<div class="panel ai-panel"><div class="ai-heading"><div class="bot-avatar">✧</div><div><h2>Penjelasan dari Ollama</h2><span class="status"><i></i> Local AI assistant</span></div></div>
+<div class="ai-message">{{ explanation or 'Penjelasan AI akan ditampilkan di sini setelah backend mengirimkan respons Ollama. Pastikan layanan Ollama aktif dan hasil klasifikasi CatBoost tersedia.' }}</div>
+<div class="notice"><span>ⓘ</span><p>Penjelasan AI bersifat pendukung. Label phishing/aman tetap mengikuti hasil klasifikasi model CatBoost.</p></div></div>
+<div class="panel"><h3>Prinsip rekomendasi</h3><div class="recommend-grid"><div><b>01 · Verifikasi domain</b><p class="muted">Cocokkan domain dengan alamat resmi layanan.</p></div><div><b>02 · Periksa konteks</b><p class="muted">Waspadai pesan mendesak yang meminta data sensitif.</p></div><div><b>03 · Hindari interaksi berisiko</b><p class="muted">Jangan klik atau mengisi data pada tautan mencurigakan.</p></div></div></div>
+{% endblock %}

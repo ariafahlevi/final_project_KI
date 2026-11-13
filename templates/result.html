@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Hasil Deteksi · PhishGuard AI{% endblock %}{% block crumb %}Hasil Deteksi{% endblock %}
+{% block content %}
+<div class="page-intro"><div class="eyebrow">SCAN REPORT</div><h1>Hasil <span>deteksi URL.</span></h1><p class="muted">Ringkasan hasil analisis tautan yang diperiksa.</p></div>
+<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' else 'safe-banner' }}">
+  <div class="result-symbol">{{ '!' if result.prediction == 'phishing' else '✓' }}</div>
+  <div class="result-copy"><span class="eyebrow">HASIL KLASIFIKASI CATBOOST</span><h2>{{ 'URL terindikasi phishing' if result.prediction == 'phishing' else 'URL terindikasi aman' }}</h2><p>{{ result.url }}</p></div>
+  <div class="confidence"><small>Confidence</small><b>{{ result.confidence }}%</b></div>
+</div>
+<div class="content-grid result-grid">
+  <section class="panel"><div class="panel-heading"><div><h3>Detail analisis URL</h3><p class="muted">Fitur yang diekstraksi dari URL</p></div></div>
+    <div class="detail-list">{% for key, value in result.features.items() %}<div><span>{{ key }}</span><b>{{ value }}</b></div>{% else %}<p class="muted">Belum ada detail fitur yang dikirim backend.</p>{% endfor %}</div>
+  </section>
+  <aside class="panel recommendation"><div class="recommend-icon">✧</div><h3>Rekomendasi keamanan</h3><p>{{ result.recommendation or 'Jangan memasukkan informasi pribadi sebelum memastikan keaslian situs dan domain.' }}</p><a class="btn btn-primary btn-wide" href="{{ url_for('analysis') }}">Lihat penjelasan AI →</a></aside>
+</div>
+<a class="back-link" href="{{ url_for('scanner') }}">← Periksa URL lainnya</a>
+{% endblock %}

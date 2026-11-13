@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PhishGuard AI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <span class="brand-mark">⬡</span>
+      <span><b>PhishGuard</b><small>AI SECURITY</small></span>
+    </a>
+    <div class="nav-label">MENU UTAMA</div>
+    <nav class="nav">
+      <a class="nav-link {% if active=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>⌂</span> Dashboard</a>
+      <a class="nav-link {% if active=='scanner' %}active{% endif %}" href="{{ url_for('scanner') }}"><span>⌕</span> Scan URL</a>
+      <a class="nav-link {% if active=='history' %}active{% endif %}" href="{{ url_for('history') }}"><span>◷</span> Riwayat</a>
+      <a class="nav-link {% if active=='evaluation' %}active{% endif %}" href="{{ url_for('evaluation') }}"><span>▥</span> Evaluasi Model</a>
+      <a class="nav-link {% if active=='settings' %}active{% endif %}" href="{{ url_for('settings') }}"><span>⚙</span> Pengaturan</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="shield-small">✓</div>
+      <b>Stay safe online</b>
+      <p>Deteksi lebih awal, berselancar lebih aman.</p>
+      <span class="status"><i></i> Sistem siap digunakan</span>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">☰</button>
+      <div class="breadcrumb">Workspace <span>/</span> <b>{% block crumb %}Dashboard{% endblock %}</b></div>
+      <div class="top-actions">
+        <button class="icon-btn" aria-label="Notifikasi">♧</button>
+        <div class="avatar">PG</div>
+      </div>
+    </header>
+    <section class="page-content">
+      {% block content %}{% endblock %}
+    </section>
+    <footer class="footer">© 2026 PhishGuard AI <span>Built for a safer internet</span></footer>
+  </main>
+</div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

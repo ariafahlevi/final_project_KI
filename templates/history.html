@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Riwayat · PhishGuard AI{% endblock %}{% block crumb %}Riwayat{% endblock %}
+{% block content %}
+<div class="page-intro"><div class="eyebrow">SCAN HISTORY</div><h1>Riwayat <span>pemeriksaan.</span></h1><p class="muted">Daftar URL yang pernah dianalisis.</p></div>
+<div class="panel recent-panel"><div class="panel-heading"><div><h3>Aktivitas pemeriksaan</h3><p class="muted">Riwayat akan terisi setelah backend dan penyimpanan dihubungkan.</p></div></div>
+<div class="empty-state"><div>◷</div><h3>Belum ada riwayat</h3><p class="muted">Hasil scan akan muncul di halaman ini setelah integrasi database tersedia.</p><a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai scan URL</a></div></div>
+{% endblock %}

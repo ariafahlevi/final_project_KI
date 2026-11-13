@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Scan URL · PhishGuard AI{% endblock %}{% block crumb %}Scan URL{% endblock %}
+{% block content %}
+<div class="page-intro"><div class="eyebrow">URL SECURITY CHECK</div><h1>Periksa sebuah <span>tautan.</span></h1><p class="muted">Masukkan URL untuk dianalisis menggunakan model deteksi PhishGuard AI.</p></div>
+<div class="scan-layout">
+  <section class="panel scan-panel">
+    <div class="scan-symbol">⌕</div><h2>URL Scanner</h2><p class="muted">Pastikan tautan yang Anda kunjungi aman sebelum membukanya.</p>
+    <form id="scanForm">
+      <label for="urlInput">Alamat URL</label>
+      <div class="url-input-wrap"><span>↗</span><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com" required></div>
+      <button class="btn btn-primary btn-wide" type="submit"><span>⌕</span> Analisis URL <span>→</span></button>
+      <p class="form-message" id="formMessage" role="status"></p>
+    </form>
+    <div class="scan-footnote">⛨ &nbsp;Analisis dilakukan berdasarkan karakteristik URL. Hindari membuka tautan mencurigakan.</div>
+  </section>
+  <aside class="panel tips-panel"><div class="tips-icon">✧</div><h3>Tips keamanan</h3><ul><li>Periksa ejaan domain dan nama situs.</li><li>Waspadai URL yang terlalu panjang atau tidak wajar.</li><li>Jangan memasukkan data pribadi pada situs yang belum dipercaya.</li><li>HTTPS bukan jaminan bahwa sebuah situs pasti aman.</li></ul><div class="soft-note">PhishGuard AI membantu analisis awal, bukan pengganti kewaspadaan pengguna.</div></aside>
+</div>
+{% endblock %}

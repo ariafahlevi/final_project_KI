@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · PhishGuard AI{% endblock %}
+{% block crumb %}Dashboard{% endblock %}
+{% block content %}
+<div class="welcome-row">
+  <div><div class="eyebrow">SELAMAT DATANG KEMBALI</div><h1>Keamanan dimulai dari <span>kesadaran.</span></h1><p class="muted">Pantau aktivitas pemeriksaan URL dan lindungi aktivitas digital Anda.</p></div>
+  <div class="hero-emblem"><div class="hero-orbit"></div><div class="hero-shield">✓</div><span class="spark s1">✦</span><span class="spark s2">✧</span></div>
+</div>
+<div class="section-heading"><div><h2>Ringkasan aktivitas</h2><p class="muted">Ikhtisar pemeriksaan URL Anda</p></div><a class="btn btn-primary" href="{{ url_for('scanner') }}">＋ Scan URL baru</a></div>
+<div class="stats-grid">
+  <article class="stat-card"><div class="stat-icon mint">⌕</div><div><p>Total pemeriksaan</p><strong>1.240</strong><small class="positive">↗ 12% <span>dari periode lalu</span></small></div></article>
+  <article class="stat-card"><div class="stat-icon rose">!</div><div><p>URL terindikasi phishing</p><strong>342</strong><small class="negative">Perlu diwaspadai</small></div></article>
+  <article class="stat-card"><div class="stat-icon sage">✓</div><div><p>URL terindikasi aman</p><strong>898</strong><small class="positive">Terverifikasi model</small></div></article>
+</div>
+<div class="content-grid">
+  <article class="panel chart-panel">
+    <div class="panel-heading"><div><h3>Aktivitas pemeriksaan</h3><p class="muted">Statistik ilustratif 7 hari terakhir</p></div><span class="pill">7 hari terakhir⌄</span></div>
+    <div class="chart-legend"><span><i class="dot green"></i> URL aman</span><span><i class="dot red"></i> Phishing</span></div>
+    <div class="bar-chart" aria-label="Grafik aktivitas contoh">
+      {% for h in [48,66,54,78,61,88,72] %}<div class="bar-pair"><div class="bar safe" style="height:{{ h }}%"></div><div class="bar danger" style="height:{{ (h*0.42)|int }}%"></div></div>{% endfor %}
+    </div>
+    <div class="chart-days"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div>
+  </article>
+  <article class="panel distribution">
+    <div class="panel-heading"><div><h3>Distribusi URL</h3><p class="muted">Data ilustratif</p></div></div>
+    <div class="donut-wrap"><div class="donut"><div><b>100%</b><small>Total</small></div></div><div class="legend-list"><span><i class="dot green"></i> Aman <b>72%</b></span><span><i class="dot red"></i> Phishing <b>28%</b></span></div></div>
+    <div class="notice"><span>✦</span><p>Selalu periksa alamat URL sebelum memasukkan informasi pribadi.</p></div>
+  </article>
+</div>
+<div class="panel recent-panel"><div class="panel-heading"><div><h3>Pemeriksaan terbaru</h3><p class="muted">Contoh tampilan riwayat pemeriksaan</p></div><a class="text-link" href="{{ url_for('history') }}">Lihat semua →</a></div>
+  <div class="table-wrap"><table><thead><tr><th>URL</th><th>Waktu</th><th>Hasil deteksi</th><th>Status</th></tr></thead><tbody>
+    <tr><td>https://example.com</td><td>Hari ini, 10:42</td><td>URL aman</td><td><span class="tag safe-tag">Aman</span></td></tr>
+    <tr><td>http://secure-account-check.test</td><td>Hari ini, 09:18</td><td>Indikasi phishing</td><td><span class="tag danger-tag">Phishing</span></td></tr>
+    <tr><td>https://portal-kampus.example</td><td>Kemarin, 16:05</td><td>URL aman</td><td><span class="tag safe-tag">Aman</span></td></tr>
+  </tbody></table></div>
+  <p class="helper-text">Data pada dashboard ini merupakan placeholder desain. Hubungkan ke database/API untuk menampilkan data aktual.</p>
+</div>
+{% endblock %}
