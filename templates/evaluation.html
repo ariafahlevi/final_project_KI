@@ -1,15 +1,40 @@
 {% extends "base.html" %}
 {% block title %}Evaluasi Model · PhishGuard AI{% endblock %}{% block crumb %}Evaluasi Model{% endblock %}
 {% block content %}
-<div class="page-intro"><div class="eyebrow">MODEL PERFORMANCE</div><h1>Evaluasi model <span>CatBoost.</span></h1><p class="muted">Ukuran performa model dalam mengklasifikasikan URL phishing dan legitimate.</p></div>
+<div class="page-intro">
+  <div class="eyebrow">MODEL PERFORMANCE</div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1>Evaluasi model <span>CatBoost.</span></h1>
+      <p class="muted">Ukuran performa model dalam mengklasifikasikan URL phishing dan legitimate.</p>
+    </div>
+    <div>
+      {% if demo %}
+      <a href="{{ url_for('evaluation', demo='0') }}" class="mode-toggle-btn" title="Klik untuk melihat mode data kosong">
+        <span>●</span> Mode Sampel Demo (Klik untuk Kosongkan)
+      </a>
+      {% else %}
+      <a href="{{ url_for('evaluation', demo='1') }}" class="mode-toggle-btn" title="Klik untuk menampilkan metrik sampel">
+        <span>○</span> Tampilkan Data Sampel Model
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
 <div class="stats-grid eval-stats">
   <article class="stat-card"><div class="stat-icon mint">◎</div><div><p>Precision</p><strong>{{ metrics.precision if metrics else '—' }}</strong><small class="muted">Ketepatan prediksi phishing</small></div></article>
   <article class="stat-card"><div class="stat-icon sage">⌁</div><div><p>Recall</p><strong>{{ metrics.recall if metrics else '—' }}</strong><small class="muted">Kemampuan menemukan phishing</small></div></article>
   <article class="stat-card"><div class="stat-icon gold">✦</div><div><p>F1-Score</p><strong>{{ metrics.f1 if metrics else '—' }}</strong><small class="muted">Keseimbangan precision & recall</small></div></article>
 </div>
 <div class="content-grid">
-  <section class="panel"><h3>Confusion matrix</h3><p class="muted">Isi dengan hasil pengujian model aktual.</p><div class="table-wrap"><table class="matrix"><thead><tr><th></th><th>Prediksi phishing</th><th>Prediksi legitimate</th></tr></thead><tbody><tr><th>Aktual phishing</th><td>{{ metrics.tp if metrics else '—' }}</td><td>{{ metrics.fn if metrics else '—' }}</td></tr><tr><th>Aktual legitimate</th><td>{{ metrics.fp if metrics else '—' }}</td><td>{{ metrics.tn if metrics else '—' }}</td></tr></tbody></table></div></section>
-  <section class="panel"><h3>Interpretasi metrik</h3><div class="metric-explain"><b>Precision</b><p class="muted">Dari semua URL yang diprediksi phishing, berapa yang benar-benar phishing?</p><b>Recall</b><p class="muted">Dari semua URL phishing aktual, berapa yang berhasil ditemukan model?</p><b>F1-Score</b><p class="muted">Ringkasan keseimbangan precision dan recall.</p></div></section>
+  <section class="panel"><h3>Confusion matrix</h3><p class="muted">Distribusi prediksi versus kondisi aktual dataset pengujian.</p><div class="table-wrap"><table class="matrix"><thead><tr><th></th><th>Prediksi phishing</th><th>Prediksi legitimate</th></tr></thead><tbody><tr><th>Aktual phishing</th><td>{{ metrics.tp if metrics else '—' }}</td><td>{{ metrics.fn if metrics else '—' }}</td></tr><tr><th>Aktual legitimate</th><td>{{ metrics.fp if metrics else '—' }}</td><td>{{ metrics.tn if metrics else '—' }}</td></tr></tbody></table></div></section>
+  <section class="panel"><h3>Interpretasi metrik</h3><div class="metric-explain"><b>Precision</b><p class="muted">Dari semua URL yang diprediksi phishing, berapa persen yang benar-benar phishing?</p><b>Recall</b><p class="muted">Dari semua URL phishing aktual, berapa persen yang berhasil ditemukan model?</p><b>F1-Score</b><p class="muted">Ringkasan keseimbangan harmonis antara precision dan recall.</p></div></section>
 </div>
-<p class="helper-text">Metrik sengaja tidak diisi angka contoh agar tidak disalahartikan sebagai hasil eksperimen.</p>
+<p class="helper-text">
+  {% if demo %}
+  ⓘ Menampilkan data simulasi benchmark CatBoost untuk keperluan demonstrasi visual antarmuka.
+  {% else %}
+  Metrik sengaja tidak diisi angka contoh agar tidak disalahartikan sebagai hasil eksperimen.
+  {% endif %}
+</p>
 {% endblock %}

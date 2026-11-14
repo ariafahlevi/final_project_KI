@@ -1,7 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Riwayat · PhishGuard AI{% endblock %}{% block crumb %}Riwayat{% endblock %}
 {% block content %}
-<div class="page-intro"><div class="eyebrow">SCAN HISTORY</div><h1>Riwayat <span>pemeriksaan.</span></h1><p class="muted">Daftar URL yang pernah dianalisis.</p></div>
-<div class="panel recent-panel"><div class="panel-heading"><div><h3>Aktivitas pemeriksaan</h3><p class="muted">Riwayat akan terisi setelah backend dan penyimpanan dihubungkan.</p></div></div>
-<div class="empty-state"><div>◷</div><h3>Belum ada riwayat</h3><p class="muted">Hasil scan akan muncul di halaman ini setelah integrasi database tersedia.</p><a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai scan URL</a></div></div>
+<div class="page-intro"><div class="eyebrow">SCAN HISTORY</div><h1>Riwayat <span>pemeriksaan.</span></h1><p class="muted">Daftar URL yang pernah dianalisis dalam sesi ini.</p></div>
+<div class="panel recent-panel">
+  <div class="panel-heading">
+    <div>
+      <h3>Aktivitas pemeriksaan</h3>
+      <p class="muted">Riwayat hasil scan URL terkini.</p>
+    </div>
+    {% if history and history|length > 0 %}
+    <form action="{{ url_for('clear_history') }}" method="POST" style="margin:0;">
+      <button class="btn" type="submit" style="background:#feebee;color:#c96570;font-size:11px;padding:6px 12px;border-radius:8px;cursor:pointer;">✕ Bersihkan Riwayat</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if history and history|length > 0 %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Waktu</th>
+          <th>Hasil Deteksi</th>
+          <th>Tingkat Keyakinan</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in history %}
+        <tr>
+          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:12px;">{{ item.url }}</td>
+          <td>{{ item.time }}</td>
+          <td>{{ 'URL terindikasi phishing' if item.prediction == 'phishing' else 'URL terindikasi aman' }}</td>
+          <td><b>{{ item.confidence }}%</b></td>
+          <td>
+            {% if item.prediction == 'phishing' %}
+            <span class="tag danger-tag">Phishing</span>
+            {% else %}
+            <span class="tag safe-tag">Aman</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div>◷</div>
+    <h3>Belum ada riwayat</h3>
+    <p class="muted">Hasil scan yang Anda uji akan otomatis tersimpan di sini selama sesi aktif.</p>
+    <a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai scan URL sekarang →</a>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

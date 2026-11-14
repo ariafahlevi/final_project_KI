@@ -23,3 +23,66 @@ img.brand-mark {
 .brand small {
   color: #a9cfc0;
 }
+
+/* Quick sample pills for easy testing */
+.quick-samples {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.quick-label {
+  font-size: 11px;
+  color: #7b958c;
+  font-weight: 600;
+}
+
+.quick-pill {
+  border: 1px dashed #b9d7cb;
+  background: #f4fbf8;
+  color: #2e6659;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-pill:hover {
+  background: #e1f4ec;
+  border-color: #5c9f88;
+  transform: translateY(-1px);
+}
+
+.quick-pill.danger {
+  border-color: #f3c2c7;
+  background: #fff8f8;
+  color: #b33946;
+}
+
+.quick-pill.danger:hover {
+  background: #feebee;
+  border-color: #c96570;
+}
+
+.mode-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  background: #eaf5ee;
+  color: #2e6659;
+  border: 1px solid #c8e7d9;
+}
+.mode-toggle-btn:hover {
+  background: #def0e7;
+}

@@ -8,6 +8,12 @@
     <form id="scanForm">
       <label for="urlInput">Alamat URL</label>
       <div class="url-input-wrap"><span>↗</span><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com" required></div>
+      <div class="quick-samples">
+        <span class="quick-label">⚡ Contoh Uji Cepat:</span>
+        <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://secure-update-login-account.com/verify';">Pola Phishing</button>
+        <button type="button" class="quick-pill" onclick="document.getElementById('urlInput').value='https://google.com';">URL Aman</button>
+        <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://192.168.1.55/banking-login';">Host IP</button>
+      </div>
       <button class="btn btn-primary btn-wide" type="submit"><span>⌕</span> Analisis URL <span>→</span></button>
       <p class="form-message" id="formMessage" role="status"></p>
     </form>
