@@ -36,6 +36,8 @@ def get_ollama_config():
 
 URL_XGB_PATH = MODEL_DIR / "url" / "xgb_production_url.joblib"
 URL_RF_PATH = MODEL_DIR / "url" / "rf_baseline_url.joblib"
+EMAIL_BILINGUAL_SVM_PATH = MODEL_DIR / "email" / "bilingual_svm_email.joblib"
+EMAIL_BILINGUAL_VEC_PATH = MODEL_DIR / "email" / "bilingual_tfidf_vectorizer_email.joblib"
 EMAIL_SVM_PATH = MODEL_DIR / "email" / "svm_production_email.joblib"
 EMAIL_VEC_PATH = MODEL_DIR / "email" / "tfidf_vectorizer_email.joblib"
 EMAIL_LR_PATH = MODEL_DIR / "email" / "lr_baseline_email.joblib"
@@ -43,6 +45,7 @@ EMAIL_LR_PATH = MODEL_DIR / "email" / "lr_baseline_email.joblib"
 _url_model = None
 _email_model = None
 _email_vectorizer = None
+_email_model_name = "Model Deteksi Email"
 
 POPULAR_TLDS = {
     'com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'info', 'biz',
@@ -65,17 +68,23 @@ def load_url_model():
     return _url_model
 
 def load_email_models():
-    global _email_model, _email_vectorizer
+    global _email_model, _email_vectorizer, _email_model_name
     if _email_model is None or _email_vectorizer is None:
-        if EMAIL_SVM_PATH.exists() and EMAIL_VEC_PATH.exists():
+        if EMAIL_BILINGUAL_SVM_PATH.exists() and EMAIL_BILINGUAL_VEC_PATH.exists():
+            _email_model = joblib.load(EMAIL_BILINGUAL_SVM_PATH)
+            _email_vectorizer = joblib.load(EMAIL_BILINGUAL_VEC_PATH)
+            _email_model_name = "Model Deteksi Email Dwibahasa (ID/EN)"
+        elif EMAIL_SVM_PATH.exists() and EMAIL_VEC_PATH.exists():
             _email_model = joblib.load(EMAIL_SVM_PATH)
             _email_vectorizer = joblib.load(EMAIL_VEC_PATH)
+            _email_model_name = "Model Deteksi Email (Inggris)"
         elif EMAIL_LR_PATH.exists() and EMAIL_VEC_PATH.exists():
             _email_model = joblib.load(EMAIL_LR_PATH)
             _email_vectorizer = joblib.load(EMAIL_VEC_PATH)
+            _email_model_name = "Model Deteksi Email (Baseline LR)"
         else:
             raise FileNotFoundError("Model Email tidak ditemukan di folder models/email/")
-    return _email_model, _email_vectorizer
+    return _email_model, _email_vectorizer, _email_model_name
 
 def extract_single_url(url: str) -> dict:
     url_str = str(url).strip()
@@ -150,8 +159,8 @@ def extract_single_url(url: str) -> dict:
 def clean_email_text(text: str) -> str:
     text = str(text).lower()
     text = re.sub(r'<[^>]+>', ' ', text)
-    text = re.sub(r'http\S+|www\.\S+', ' ', text)
-    text = re.sub(r'\S+@\S+', ' ', text)
+    text = re.sub(r'http\S+|www\.\S+', ' url_token ', text)
+    text = re.sub(r'\S+@\S+', ' email_token ', text)
     text = re.sub(r'[^a-zA-Z\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
@@ -201,7 +210,7 @@ def predict_url_ml(url: str) -> dict:
     }
 
 def predict_email_ml(text: str) -> dict:
-    model, vectorizer = load_email_models()
+    model, vectorizer, model_name = load_email_models()
     cleaned = clean_email_text(text)
     
     if not cleaned:
@@ -212,23 +221,33 @@ def predict_email_ml(text: str) -> dict:
     prob_phish = float(prob_matrix[1])
     prob_safe = float(prob_matrix[0])
     
+    urgency_terms = [
+        # English
+        "urgent", "account", "suspended", "password", "security", "verify", "update", "bank", "immediately", "action", "expire", "access", "invoice", "confirm", "reward", "winner", "prize",
+        # Indonesian
+        "segera", "akun", "diblokir", "ditutup", "sandi", "keamanan", "verifikasi", "perbarui", "bank", "tindakan", "kedaluwarsa", "akses", "saldo", "rekening", "otp", "tagihan", "pajak", "paket", "kurir", "unduh", "apk", "klik", "klaim", "hadiah", "undian", "tilang", "etle", "bca", "brimo", "livin", "dana", "shopee"
+    ]
+    detected_terms = [w for w in urgency_terms if w in cleaned.split()]
+
+    # Mitigasi Zero-Vector Intercept Bias pada model SVM sparse
+    if vec_input.nnz == 0 and not detected_terms:
+        prob_phish = 0.15
+        prob_safe = 0.85
+
     is_phish = prob_phish >= 0.5
     prediction = "phishing" if is_phish else "legitimate"
     confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
-    
-    urgency_terms = ["urgent", "account", "suspended", "password", "security", "verify", "update", "bank", "immediately", "action", "expire", "access"]
-    detected_terms = [w for w in urgency_terms if w in cleaned.split()]
 
     features_display = {
         "Jumlah Kata": f"{len(text.split())} kata",
-        "Indikasi Urgensi": ", ".join(detected_terms).title() if detected_terms else "Tidak ada kata mencurigakan",
-        "Pola Pesan": "Menggunakan tekanan emosional / ancaman penutupan akun" if is_phish else "Bahasa normal dan wajar"
+        "Deteksi Urgensi": ", ".join(detected_terms[:5]).title() if detected_terms else "Tidak ada kata mencurigakan",
+        "Pola Pesan": "Menggunakan tekanan emosional / pancingan kredensial" if is_phish else "Bahasa normal dan wajar"
     }
 
     if is_phish:
         recommendation = (
             "Pesan ini terindikasi sebagai email penipuan (phishing). "
-            "Waspadai permintaan mendesak untuk memperbarui kata sandi atau klik tombol di dalam pesan."
+            "Waspadai permintaan mendesak untuk memperbarui kata sandi, memasukkan data perbankan, atau mengunduh lampiran/file."
         )
     else:
         recommendation = (
@@ -241,7 +260,7 @@ def predict_email_ml(text: str) -> dict:
         "prediction": prediction,
         "confidence": confidence,
         "prob_phish": round(prob_phish, 4),
-        "model_name": "Model Deteksi Email",
+        "model_name": model_name,
         "features": features_display,
         "recommendation": recommendation
     }

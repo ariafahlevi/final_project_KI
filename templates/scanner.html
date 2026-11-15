@@ -46,10 +46,12 @@
           <textarea id="emailInput" name="text" rows="5" placeholder="Tempelkan subjek atau isi pesan email yang mencurigakan di sini..." style="width:100%;border-radius:10px;border:1px solid #c8e0d5;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;background:#fbfdfc;box-sizing:border-box;resize:vertical;"></textarea>
         </div>
         <div class="quick-samples">
-          <span class="quick-label">Contoh Cepat:</span>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.';">Pemberitahuan Akun Ditutup</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='DHL Delivery Alert: Your package is on hold due to missing address info. Update payment now to avoid return to sender.';">Notifikasi Paket Tertahan</button>
-          <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Hi Team, please find attached the meeting notes from yesterday. Let me know if you have any questions.';">Email Kerja Normal</button>
+          <span class="quick-label">Contoh Cepat (ID & EN):</span>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='Peringatan: Akun BCA Mobile Anda terkunci. Klik tautan berikut untuk verifikasi identitas dan buka blokir rekening Anda segera.';">Phishing BCA (ID)</button>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='Paket SiCepat Express gagal dikirimkan. Unduh file resi konfirmasi alamat paket apk untuk pengantaran ulang kurir.';">Penipuan APK Kurir (ID)</button>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.';">Akun Ditutup (EN)</button>
+          <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Selamat pagi tim, mohon kirimkan update progress sprint review dan kendala blocking sebelum jam 5 sore untuk standup.';">Email Kantor Normal (ID)</button>
+          <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Hi Team, please find attached the meeting notes from yesterday. Let me know if you have any questions.';">Email Kerja Normal (EN)</button>
         </div>
       </div>
 

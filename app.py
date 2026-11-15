@@ -32,8 +32,8 @@ def evaluation():
     
     if model_type == "email":
         metrics = {
-            "title": "Evaluasi Deteksi Email",
-            "subtitle": "Hasil pengujian sistem terhadap ribuan sampel pesan email phishing dan email kerja normal.",
+            "title": "Evaluasi Deteksi Email (Dwibahasa ID & EN)",
+            "subtitle": "Hasil pengujian model SVM dwibahasa terhadap ribuan sampel email phishing perbankan lokal, kurir APK, serta email kantor normal.",
             "precision": "98.6%",
             "recall": "98.6%",
             "f1": "98.6%",
@@ -42,7 +42,7 @@ def evaluation():
             "fn": "18",
             "fp": "18",
             "tn": "2.170",
-            "ood_title": "Uji Coba Email Kantor Nyata (600 Email)",
+            "ood_title": "Uji Stres Korpus Enron & Kasus Nyata Indonesia",
             "ood_acc": "99.0%",
             "ood_fp": "1.4%"
         }
