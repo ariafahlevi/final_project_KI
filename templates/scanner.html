@@ -57,6 +57,36 @@
         <span id="btnIcon">⌕</span> <span id="btnText">Mulai Periksa</span> <span>→</span>
       </button>
       <p class="form-message" id="formMessage" role="status" style="margin-top:12px;font-size:12px;"></p>
+
+      <!-- Live Stepper Alur Kerja LLM & ML -->
+      <div id="pipelineProgress" style="display:none;margin-top:16px;padding:16px;background:#f6fbf8;border:1px solid #c8e7d9;border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e6659;box-shadow:0 0 0 3px rgba(46,102,89,0.2);"></span>
+          <b style="color:#1b4d3e;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;">Alur Kerja Pemeriksaan Berlapis Sedang Berjalan:</b>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div class="flow-step" id="pstep1" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
+            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">1</span>
+            <span><b>Tahap 1: Ekstraksi Bukti</b> — Parameter teknis & struktur diurai</span>
+          </div>
+          <div class="flow-step" id="pstep2" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
+            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">2</span>
+            <span><b>Tahap 2: Detektor Machine Learning</b> — Menghitung probabilitas awal</span>
+          </div>
+          <div class="flow-step" id="pstep3" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
+            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">3</span>
+            <span><b>Tahap 3: Evidence Bundle</b> — Bukti dikemas untuk audit objektif</span>
+          </div>
+          <div class="flow-step" id="pstep4" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
+            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">4</span>
+            <span><b>Tahap 4: Verifikasi Qwen 2.5 7B</b> — Evaluasi konteks bahasa & rekayasa sosial</span>
+          </div>
+          <div class="flow-step" id="pstep5" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
+            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">5</span>
+            <span><b>Tahap 5: Rekonsiliasi & Siapkan PDF</b> — Keputusan ganda terpadu</span>
+          </div>
+        </div>
+      </div>
     </form>
     
     <div class="scan-footnote">⛨ &nbsp;Analisis dilakukan secara otomatis untuk mendeteksi tanda-tanda penipuan digital.</div>

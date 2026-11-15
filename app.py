@@ -1,7 +1,8 @@
 import os
 import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_file
 import ml_engine
+import pdf_report
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "phisguard-security-key-2026")
@@ -102,6 +103,22 @@ def show_result():
         return redirect(url_for("scanner"))
     return render_template("result.html", active="scanner", result=result)
 
+@app.get("/report/pdf")
+def download_pdf_report():
+    """Mengunduh Laporan Investigasi Keamanan Resmi dalam format PDF."""
+    result = session.get("last_result")
+    if not result:
+        return redirect(url_for("scanner"))
+    
+    pdf_buffer = pdf_report.generate_pdf_report(result)
+    analysis_id = result.get("analysis_id", "report")
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"Laporan_PhisGuard_{analysis_id}.pdf"
+    )
+
 @app.post("/api/scan")
 def api_scan():
     data = request.get_json(silent=True) or {}
@@ -111,16 +128,19 @@ def api_scan():
     if not target_input:
         return jsonify({"error": "Target yang ingin diperiksa tidak boleh kosong"}), 400
 
-    # 1. Deteksi Sistem
+    analysis_id = f"PG-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+    # 1. Deteksi Pertama (Machine Learning Engine)
     if input_type == "email" or (len(target_input.split()) > 4 and not target_input.startswith(("http://", "https://", "www."))):
         ml_res = ml_engine.predict_email_ml(target_input)
     else:
         ml_res = ml_engine.predict_url_ml(target_input)
 
-    # 2. Verifikasi Konteks Tambahan
+    # 2. Pemeriksa Kedua Independen (Qwen 2.5 7B via Ollama)
     qwen_res = ml_engine.get_qwen_verification(target_input, ml_res["type"], ml_res)
 
     combined_result = {
+        "analysis_id": analysis_id,
         "url": target_input,
         "input_type": ml_res["type"],
         "prediction": ml_res["prediction"],
@@ -133,7 +153,9 @@ def api_scan():
         "status_text": qwen_res["status_text"]
     }
 
+    session["last_result"] = combined_result
     session["last_explanation"] = {
+        "analysis_id": analysis_id,
         "input": target_input,
         "type": ml_res["type"],
         "ml_result": ml_res,
@@ -143,6 +165,7 @@ def api_scan():
     history_list = session.get("scan_history", [])
     now_str = datetime.datetime.now().strftime("%d %b %Y, %H:%M")
     history_list.insert(0, {
+        "analysis_id": analysis_id,
         "url": target_input[:80] + ("..." if len(target_input) > 80 else ""),
         "type": "URL" if ml_res["type"] == "url" else "EMAIL",
         "time": now_str,
