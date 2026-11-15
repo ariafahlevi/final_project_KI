@@ -1,40 +1,125 @@
 {% extends "base.html" %}
-{% block title %}Evaluasi Model · PhishGuard AI{% endblock %}{% block crumb %}Evaluasi Model{% endblock %}
+{% block title %}Evaluasi Model Empiris · PhisGuard AI{% endblock %}
+{% block crumb %}Evaluasi Model{% endblock %}
 {% block content %}
 <div class="page-intro">
-  <div class="eyebrow">MODEL PERFORMANCE</div>
+  <div class="eyebrow">MODEL PERFORMANCE & EXPERIMENT AUDIT</div>
   <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
     <div>
-      <h1>Evaluasi model <span>CatBoost.</span></h1>
-      <p class="muted">Ukuran performa model dalam mengklasifikasikan URL phishing dan legitimate.</p>
+      <h1>{{ metrics.title }}</h1>
+      <p class="muted">{{ metrics.subtitle }}</p>
     </div>
-    <div>
-      {% if demo %}
-      <a href="{{ url_for('evaluation', demo='0') }}" class="mode-toggle-btn" title="Klik untuk melihat mode data kosong">
-        <span>●</span> Mode Sampel Demo (Klik untuk Kosongkan)
+    <!-- Tab Pilih Model Evaluasi -->
+    <div style="display:flex;gap:8px;">
+      <a href="{{ url_for('evaluation', model='url') }}" class="btn" style="border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;text-decoration:none;{{ 'background:#2e6659;color:#fff;' if current_model == 'url' else 'background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;' }}">
+        ⌕ Model URL (XGBoost)
       </a>
-      {% else %}
-      <a href="{{ url_for('evaluation', demo='1') }}" class="mode-toggle-btn" title="Klik untuk menampilkan metrik sampel">
-        <span>○</span> Tampilkan Data Sampel Model
+      <a href="{{ url_for('evaluation', model='email') }}" class="btn" style="border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;text-decoration:none;{{ 'background:#2e6659;color:#fff;' if current_model == 'email' else 'background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;' }}">
+        ✉ Model Email (Linear SVM)
       </a>
-      {% endif %}
     </div>
   </div>
 </div>
-<div class="stats-grid eval-stats">
-  <article class="stat-card"><div class="stat-icon mint">◎</div><div><p>Precision</p><strong>{{ metrics.precision if metrics else '—' }}</strong><small class="muted">Ketepatan prediksi phishing</small></div></article>
-  <article class="stat-card"><div class="stat-icon sage">⌁</div><div><p>Recall</p><strong>{{ metrics.recall if metrics else '—' }}</strong><small class="muted">Kemampuan menemukan phishing</small></div></article>
-  <article class="stat-card"><div class="stat-icon gold">✦</div><div><p>F1-Score</p><strong>{{ metrics.f1 if metrics else '—' }}</strong><small class="muted">Keseimbangan precision & recall</small></div></article>
+
+<!-- 4 Metrik Kunci Evaluasi -->
+<div class="stats-grid eval-stats" style="grid-template-columns:repeat(4, 1fr);">
+  <article class="stat-card">
+    <div class="stat-icon mint">◎</div>
+    <div>
+      <p>Accuracy</p>
+      <strong>{{ metrics.accuracy }}</strong>
+      <small class="muted">Akurasi keseluruhan test-split</small>
+    </div>
+  </article>
+  <article class="stat-card">
+    <div class="stat-icon mint">✦</div>
+    <div>
+      <p>Precision</p>
+      <strong>{{ metrics.precision }}</strong>
+      <small class="muted">Ketepatan deteksi positif</small>
+    </div>
+  </article>
+  <article class="stat-card">
+    <div class="stat-icon sage">⌁</div>
+    <div>
+      <p>Recall</p>
+      <strong>{{ metrics.recall }}</strong>
+      <small class="muted">Cakupan tangkapan phishing</small>
+    </div>
+  </article>
+  <article class="stat-card">
+    <div class="stat-icon gold">★</div>
+    <div>
+      <p>F1-Score</p>
+      <strong>{{ metrics.f1 }}</strong>
+      <small class="muted">Harmonisasi precision & recall</small>
+    </div>
+  </article>
 </div>
+
+<!-- Confusion Matrix & Stress-Test Block -->
 <div class="content-grid">
-  <section class="panel"><h3>Confusion matrix</h3><p class="muted">Distribusi prediksi versus kondisi aktual dataset pengujian.</p><div class="table-wrap"><table class="matrix"><thead><tr><th></th><th>Prediksi phishing</th><th>Prediksi legitimate</th></tr></thead><tbody><tr><th>Aktual phishing</th><td>{{ metrics.tp if metrics else '—' }}</td><td>{{ metrics.fn if metrics else '—' }}</td></tr><tr><th>Aktual legitimate</th><td>{{ metrics.fp if metrics else '—' }}</td><td>{{ metrics.tn if metrics else '—' }}</td></tr></tbody></table></div></section>
-  <section class="panel"><h3>Interpretasi metrik</h3><div class="metric-explain"><b>Precision</b><p class="muted">Dari semua URL yang diprediksi phishing, berapa persen yang benar-benar phishing?</p><b>Recall</b><p class="muted">Dari semua URL phishing aktual, berapa persen yang berhasil ditemukan model?</p><b>F1-Score</b><p class="muted">Ringkasan keseimbangan harmonis antara precision dan recall.</p></div></section>
+  <!-- Confusion Matrix -->
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h3>Confusion Matrix (In-Distribution Test-Split)</h3>
+        <p class="muted">Evaluasi pada 20% data uji unseen (Stratified Split)</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Prediksi Phishing</th>
+            <th>Prediksi Legitimate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Aktual Phishing</th>
+            <td style="color:#2e6659;font-weight:700;">{{ metrics.tp }} <small>(True Positive)</small></td>
+            <td style="color:#c96570;">{{ metrics.fn }} <small>(False Negative)</small></td>
+          </tr>
+          <tr>
+            <th>Aktual Legitimate</th>
+            <td style="color:#c96570;">{{ metrics.fp }} <small>(False Positive)</small></td>
+            <td style="color:#2e6659;font-weight:700;">{{ metrics.tn }} <small>(True Negative)</small></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Validasi Eksternal OOD -->
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h3>Validasi Eksternal (Out-of-Distribution / OOD)</h3>
+        <p class="muted">Pengujian ketahanan di dunia nyata (EXP-002)</p>
+      </div>
+    </div>
+    <div style="background:#f4fbf8;border:1px solid #c8e7d9;border-radius:10px;padding:16px;margin-top:10px;">
+      <b style="font-size:14px;color:#183b32;display:block;">{{ metrics.ood_title }}</b>
+      <div style="display:flex;gap:20px;margin-top:12px;">
+        <div>
+          <span style="font-size:11px;color:#58766a;">Akurasi / Recall OOD:</span>
+          <div style="font-size:22px;font-weight:800;color:#2e6659;">{{ metrics.ood_acc }}</div>
+        </div>
+        <div>
+          <span style="font-size:11px;color:#58766a;">False Positive / Disparity:</span>
+          <div style="font-size:22px;font-weight:800;color:#8a4d57;">{{ metrics.ood_fp }}</div>
+        </div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:10px;">
+        Data diambil dari korpus eksternal independen tanpa melatih ulang model untuk menguji ketahanan terhadap pergeseran domain (*distribution shift*).
+      </p>
+    </div>
+  </section>
 </div>
-<p class="helper-text">
-  {% if demo %}
-  ⓘ Menampilkan data simulasi benchmark CatBoost untuk keperluan demonstrasi visual antarmuka.
-  {% else %}
-  Metrik sengaja tidak diisi angka contoh agar tidak disalahartikan sebagai hasil eksperimen.
-  {% endif %}
+
+<p class="helper-text" style="margin-top:20px;">
+  ✓ Seluruh metrik bersumber dari catatan empiris eksperimen machine learning `EXP-001` dan `EXP-002` pada notebook training PhisGuard.
 </p>
 {% endblock %}

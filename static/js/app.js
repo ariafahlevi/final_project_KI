@@ -7,39 +7,59 @@ document.addEventListener("DOMContentLoaded", () => {
   if (form) {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const input = document.getElementById("urlInput");
       const message = document.getElementById("formMessage");
       const button = form.querySelector("button[type=submit]");
-      const url = input.value.trim();
-      if (!url) return;
-      message.textContent = "Sedang menganalisis URL…";
+      const scanType = document.getElementById("scanType") ? document.getElementById("scanType").value : "url";
+      
+      let payload = { type: scanType };
+      if (scanType === "url") {
+        const urlInput = document.getElementById("urlInput");
+        const val = urlInput.value.trim();
+        if (!val) return;
+        payload.url = val;
+      } else {
+        const emailInput = document.getElementById("emailInput");
+        const val = emailInput.value.trim();
+        if (!val) return;
+        payload.text = val;
+      }
+
+      message.textContent = "Sedang mengekstraksi fitur & menjalankan inferensi ML + verifikasi Qwen 2.5 7B…";
       message.style.color = "#5c9f88";
       button.disabled = true;
       button.style.opacity = ".7";
+
       try {
-        // Endpoint kontrak awal. Sesuaikan nama endpoint/format respons dengan backend Flask kelompok.
         const response = await fetch("/api/scan", {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({url})
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error("API belum tersedia atau terjadi kesalahan.");
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || "Gagal memproses analisis ancaman.");
+        }
+
         const data = await response.json();
-        // Backend diharapkan mengembalikan prediction, confidence, features, recommendation.
+
+        // Kirim hasil ke sesi hasil Flask
         const resultResponse = await fetch("/scan/result", {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
-        if (resultResponse.redirected) window.location.href = resultResponse.url;
-        else if (data.redirect_url) window.location.href = data.redirect_url;
-        else {
-          sessionStorage.setItem("phishguard_last_result", JSON.stringify(data));
-          message.textContent = "Analisis selesai. Hubungkan redirect hasil pada backend Flask.";
+
+        if (resultResponse.redirected) {
+          window.location.href = resultResponse.url;
+        } else if (data.redirect_url) {
+          window.location.href = data.redirect_url;
+        } else {
+          window.location.href = "/result";
         }
       } catch (error) {
         message.style.color = "#c96570";
-        message.textContent = error.message + " Periksa koneksi backend Flask.";
+        message.textContent = error.message + " Pastikan server berjalan normal.";
       } finally {
         button.disabled = false;
         button.style.opacity = "1";

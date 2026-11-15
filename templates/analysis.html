@@ -1,9 +1,70 @@
 {% extends "base.html" %}
-{% block title %}AI Analysis · PhishGuard AI{% endblock %}{% block crumb %}AI Analysis{% endblock %}
+{% block title %}AI Analysis (Qwen 2.5 7B) · PhisGuard AI{% endblock %}
+{% block crumb %}AI Analysis{% endblock %}
 {% block content %}
-<div class="page-intro"><div class="eyebrow">AI-POWERED INSIGHT</div><h1>Memahami hasil <span>lebih dalam.</span></h1><p class="muted">Penjelasan tambahan dari model bahasa lokal Ollama berdasarkan hasil klasifikasi.</p></div>
-<div class="panel ai-panel"><div class="ai-heading"><div class="bot-avatar">✧</div><div><h2>Penjelasan dari Ollama</h2><span class="status"><i></i> Local AI assistant</span></div></div>
-<div class="ai-message">{{ explanation or 'Penjelasan AI akan ditampilkan di sini setelah backend mengirimkan respons Ollama. Pastikan layanan Ollama aktif dan hasil klasifikasi CatBoost tersedia.' }}</div>
-<div class="notice"><span>ⓘ</span><p>Penjelasan AI bersifat pendukung. Label phishing/aman tetap mengikuti hasil klasifikasi model CatBoost.</p></div></div>
-<div class="panel"><h3>Prinsip rekomendasi</h3><div class="recommend-grid"><div><b>01 · Verifikasi domain</b><p class="muted">Cocokkan domain dengan alamat resmi layanan.</p></div><div><b>02 · Periksa konteks</b><p class="muted">Waspadai pesan mendesak yang meminta data sensitif.</p></div><div><b>03 · Hindari interaksi berisiko</b><p class="muted">Jangan klik atau mengisi data pada tautan mencurigakan.</p></div></div></div>
+<div class="page-intro">
+  <div class="eyebrow">DEFENSIVE AI INSIGHT</div>
+  <h1>Memahami hasil <span>lebih dalam.</span></h1>
+  <p class="muted">Penjelasan mendalam dan verifikasi independen oleh model bahasa lokal Qwen 2.5 7B melalui Ollama.</p>
+</div>
+
+<div class="panel ai-panel">
+  <div class="ai-heading">
+    <div class="bot-avatar">✧</div>
+    <div>
+      <h2>Analisis & Verifikasi Independen (Qwen 2.5 7B)</h2>
+      <span class="status"><i></i> {{ data.qwen_result.source if data and data.qwen_result else 'Local Defensive AI Assistant' }}</span>
+    </div>
+  </div>
+
+  {% if data and data.ml_result %}
+  <div style="margin:16px 0;padding:12px;background:#f4fbf8;border-left:4px solid #2e6659;border-radius:6px;font-size:13px;">
+    <b>Objek Diperiksa:</b> <span style="font-family:monospace;">{{ data.input }}</span><br>
+    <b>Model Detektor:</b> {{ data.ml_result.model_name }} (Prediksi: <b>{{ data.ml_result.prediction|upper }}</b>, Keyakinan: <b>{{ data.ml_result.confidence }}%</b>)<br>
+    <b>Status Rekonsiliasi:</b> <span style="color:#2e6659;font-weight:700;">{{ data.qwen_result.status_text if data.qwen_result else 'Selesai' }}</span>
+  </div>
+  {% endif %}
+
+  <div class="ai-message" style="line-height:1.7;font-size:14px;color:#234a3e;">
+    {{ (data.qwen_result.explanation if data and data.qwen_result else None) or 'Penjelasan AI akan ditampilkan di sini setelah Anda melakukan pemeriksaan URL atau Email di menu Scan. Sistem menggunakan model Qwen 2.5 7B untuk menganalisis konteks bahasa, memeriksa rekayasa sosial, dan memverifikasi prediksi awal ML secara independen.' }}
+  </div>
+
+  {% if data and data.qwen_result and data.qwen_result.indicators %}
+  <div style="margin-top:16px;">
+    <b style="color:#183b32;font-size:13px;">Indikator Ancaman Utama yang Teridentifikasi:</b>
+    <ul style="margin:8px 0 0 20px;color:#355e50;font-size:13px;">
+      {% for ind in data.qwen_result.indicators %}
+      <li>{{ ind }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="notice" style="margin-top:20px;">
+    <span>ⓘ</span>
+    <p>Penjelasan Qwen 2.5 7B bersifat verifikasi kualitatif. Prediksi klasifikasi kuantitatif divalidasi silang terhadap model Machine Learning (XGBoost/SVM) untuk mendeteksi potensi false negative.</p>
+  </div>
+</div>
+
+<div class="panel">
+  <h3>Prinsip Pertahanan Berlapis (Defense-in-Depth)</h3>
+  <div class="recommend-grid">
+    <div>
+      <b>01 · Verifikasi Struktural (ML)</b>
+      <p class="muted">Ekstraksi 17 parameter leksikal URL atau 25.000 n-gram teks untuk klasifikasi terukur.</p>
+    </div>
+    <div>
+      <b>02 · Blind Second-Check (Qwen 7B)</b>
+      <p class="muted">Model LLM menilai bukti tanpa bias label ML untuk mencegah fenomena anchoring bias.</p>
+    </div>
+    <div>
+      <b>03 · Rekonsiliasi Hasil</b>
+      <p class="muted">Kondisi ketidaksepakatan (disagreement) secara otomatis memicu flag untuk review keamanan manual.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px;">
+  <a class="back-link" href="{{ url_for('scanner') }}">← Kembali ke Scanner Ancaman</a>
+</div>
 {% endblock %}
