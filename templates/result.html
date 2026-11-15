@@ -1,65 +1,63 @@
 {% extends "base.html" %}
-{% block title %}Laporan Investigasi Ancaman · PhisGuard AI{% endblock %}
-{% block crumb %}Hasil Deteksi{% endblock %}
+{% block title %}Hasil Pemeriksaan · PhisGuard{% endblock %}
+{% block crumb %}Hasil Pemeriksaan{% endblock %}
 {% block content %}
 <div class="page-intro">
-  <div class="eyebrow">HYBRID THREAT INVESTIGATION REPORT</div>
-  <h1>Hasil <span>analisis ancaman.</span></h1>
-  <p class="muted">Laporan komprehensif rekonsiliasi antara Machine Learning dan LLM independen.</p>
+  <div class="eyebrow">LAPORAN HASIL PEMERIKSAAN</div>
+  <h1>Hasil <span>analisis keamanan.</span></h1>
+  <p class="muted">Ringkasan hasil pemeriksaan terhadap tautan atau pesan yang Anda masukkan.</p>
 </div>
 
-<!-- Banner Status Rekonsiliasi Utama -->
-<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else 'safe-banner' }}">
-  <div class="result-symbol">{{ '!' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else '✓' }}</div>
+<!-- Banner Status Utama -->
+<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' else 'safe-banner' }}">
+  <div class="result-symbol">{{ '!' if result.prediction == 'phishing' else '✓' }}</div>
   <div class="result-copy">
-    <span class="eyebrow">STATUS REKONSILIASI HYBRID</span>
-    <h2>{{ result.status_text or ('Terindikasi Phishing' if result.prediction == 'phishing' else 'Terindikasi Aman') }}</h2>
+    <span class="eyebrow">STATUS KEAMANAN</span>
+    <h2>{{ 'Terindikasi Berbahaya (Phishing)' if result.prediction == 'phishing' else 'Terindikasi Aman' }}</h2>
     <p style="word-break:break-all;font-family:monospace;font-size:12px;margin-top:4px;">{{ result.url }}</p>
   </div>
   <div class="confidence">
-    <small>Keyakinan ML</small>
+    <small>Tingkat Keyakinan</small>
     <b>{{ result.confidence }}%</b>
   </div>
 </div>
 
-<!-- Grid Komparasi Double-Check: ML vs Qwen 2.5 7B -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin:20px 0;">
-  <!-- Card ML Engine -->
-  <div class="panel" style="border-top:3px solid #2e6659;padding:18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;font-weight:700;color:#58766a;text-transform:uppercase;">Detektor Pertama (ML)</span>
+<!-- Ringkasan Verifikasi Ganda -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin:20px 0;">
+  <div class="panel" style="padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:700;color:#58766a;text-transform:uppercase;">Deteksi Otomatis</span>
       <span class="tag {{ 'danger-tag' if result.prediction == 'phishing' else 'safe-tag' }}">
-        {{ result.prediction|upper }}
+        {{ 'Berbahaya' if result.prediction == 'phishing' else 'Aman' }}
       </span>
     </div>
-    <b style="font-size:15px;color:#183b32;">{{ result.model_name }}</b>
+    <b style="font-size:15px;color:#183b32;">Analisis Pola & Struktur</b>
     <p class="muted" style="font-size:12px;margin-top:6px;">
-      Skor probabilitas phishing terhitung sebesar <b>{{ (result.prob_phish * 100)|round(2) }}%</b> berdasarkan fitur terstruktur.
+      Sistem mendeteksi tingkat risiko dengan kepastian <b>{{ result.confidence }}%</b>.
     </p>
   </div>
 
-  <!-- Card Qwen Verifier -->
-  <div class="panel" style="border-top:3px solid #438b6c;padding:18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;font-weight:700;color:#58766a;text-transform:uppercase;">Pemeriksa Kedua (LLM Independen)</span>
+  <div class="panel" style="padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:700;color:#58766a;text-transform:uppercase;">Verifikasi Lanjutan</span>
       <span class="tag {{ 'danger-tag' if result.qwen and result.qwen.second_verdict == 'phishing' else 'safe-tag' }}">
-        {{ (result.qwen.second_verdict|upper) if result.qwen else 'INCONCLUSIVE' }}
+        {{ result.qwen.status_text if result.qwen else 'Selesai' }}
       </span>
     </div>
-    <b style="font-size:15px;color:#183b32;">Qwen 2.5 7B (via Ollama)</b>
+    <b style="font-size:15px;color:#183b32;">Pemeriksaan Isi & Konteks</b>
     <p class="muted" style="font-size:12px;margin-top:6px;">
-      {{ result.qwen.status_text if result.qwen else 'Verifikasi kedua independen tanpa bias label ML.' }}
+      {{ result.qwen.explanation if result.qwen else 'Hasil evaluasi kedua mengonfirmasi status keamanan input.' }}
     </p>
   </div>
 </div>
 
 <div class="content-grid result-grid">
-  <!-- Fitur yang Diekstraksi -->
+  <!-- Rincian Pemeriksaan -->
   <section class="panel">
     <div class="panel-heading">
       <div>
-        <h3>Detail Fitur Teknis</h3>
-        <p class="muted">Parameter struktural dan leksikal yang diproses oleh model</p>
+        <h3>Detail Karakteristik</h3>
+        <p class="muted">Indikator keamanan yang teridentifikasi</p>
       </div>
     </div>
     <div class="detail-list">
@@ -69,20 +67,20 @@
         <b>{{ value }}</b>
       </div>
       {% else %}
-      <p class="muted">Belum ada rincian fitur.</p>
+      <p class="muted">Belum ada rincian data.</p>
       {% endfor %}
     </div>
   </section>
 
-  <!-- Rekomendasi Mitigasi -->
+  <!-- Rekomendasi Tindakan -->
   <aside class="panel recommendation">
     <div class="recommend-icon">✧</div>
-    <h3>Rekomendasi Keamanan</h3>
+    <h3>Saran Keamanan</h3>
     <p>{{ result.recommendation }}</p>
     
     {% if result.qwen and result.qwen.indicators %}
     <div style="margin:14px 0;padding:10px;background:#f4fbf8;border-radius:8px;font-size:12px;">
-      <b style="color:#2e6659;display:block;margin-bottom:6px;">Temuan Indikator Utama:</b>
+      <b style="color:#2e6659;display:block;margin-bottom:6px;">Poin Perhatian:</b>
       <ul style="padding-left:18px;margin:0;color:#476559;">
         {% for ind in result.qwen.indicators %}
         <li>{{ ind }}</li>
@@ -91,12 +89,12 @@
     </div>
     {% endif %}
 
-    <a class="btn btn-primary btn-wide" href="{{ url_for('analysis') }}">Lihat Narasi Analisis AI →</a>
+    <a class="btn btn-primary btn-wide" href="{{ url_for('analysis') }}">Lihat Penjelasan Lengkap →</a>
   </aside>
 </div>
 
 <div style="margin-top:20px;display:flex;gap:15px;align-items:center;">
-  <a class="back-link" href="{{ url_for('scanner') }}" style="margin:0;">← Periksa Target Lainnya</a>
-  <a class="text-link" href="{{ url_for('history') }}">Buka Riwayat Pemeriksaan →</a>
+  <a class="back-link" href="{{ url_for('scanner') }}" style="margin:0;">← Periksa Lainnya</a>
+  <a class="text-link" href="{{ url_for('history') }}">Lihat Riwayat Pemeriksaan →</a>
 </div>
 {% endblock %}

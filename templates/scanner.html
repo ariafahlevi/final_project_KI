@@ -1,76 +1,77 @@
 {% extends "base.html" %}
-{% block title %}Scan Ancaman · PhisGuard AI{% endblock %}{% block crumb %}Scan Ancaman{% endblock %}
+{% block title %}Pemeriksaan Keamanan · PhisGuard{% endblock %}
+{% block crumb %}Scan Keamanan{% endblock %}
 {% block content %}
 <div class="page-intro">
-  <div class="eyebrow">HYBRID THREAT DETECTION</div>
-  <h1>Periksa <span>URL atau Email.</span></h1>
-  <p class="muted">Klasifikasi awal oleh Machine Learning (XGBoost/SVM) diverifikasi secara independen oleh Qwen 2.5 7B.</p>
+  <div class="eyebrow">DETEKSI PHISHING & PENIPUAN</div>
+  <h1>Periksa <span>URL atau pesan email.</span></h1>
+  <p class="muted">Ketahui apakah sebuah tautan atau pesan aman sebelum Anda berinteraksi lebih jauh.</p>
 </div>
 
 <!-- Tab Navigasi Mode Analisis -->
 <div class="tab-switcher" style="display:flex;gap:10px;margin-bottom:20px;">
   <button type="button" id="tabUrlBtn" class="btn" style="background:#2e6659;color:#fff;border-radius:20px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer;">
-    ⌕ Scan URL (XGBoost)
+    ⌕ Periksa URL
   </button>
   <button type="button" id="tabEmailBtn" class="btn" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;border-radius:20px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer;">
-    ✉ Scan Email Phishing (Linear SVM)
+    ✉ Periksa Email
   </button>
 </div>
 
 <div class="scan-layout">
   <section class="panel scan-panel">
     <div class="scan-symbol" id="panelSymbol">⌕</div>
-    <h2 id="panelTitle">URL Scanner</h2>
-    <p class="muted" id="panelSubtitle">Deteksi ancaman berbasis 17 fitur leksikal & struktural menggunakan model XGBoost.</p>
+    <h2 id="panelTitle">Pemeriksaan Tautan URL</h2>
+    <p class="muted" id="panelSubtitle">Pastikan tautan yang Anda terima aman sebelum membukanya di browser.</p>
 
     <form id="scanForm">
       <input type="hidden" id="scanType" name="type" value="url">
 
       <!-- Form URL -->
       <div id="urlInputContainer">
-        <label for="urlInput">Alamat URL Target</label>
+        <label for="urlInput">Alamat URL Tautan</label>
         <div class="url-input-wrap"><span>↗</span><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com"></div>
         <div class="quick-samples">
-          <span class="quick-label">⚡ Uji Cepat URL:</span>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://192.168.1.1/secure-update-login-account/verify.php';">Host IP Phish</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://secure-update-login-account.com/verify';">Pola Leksikal Phish</button>
-          <button type="button" class="quick-pill" onclick="document.getElementById('urlInput').value='https://google.com';">URL Resmi (Aman)</button>
+          <span class="quick-label">Contoh Cepat:</span>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://192.168.1.1/secure-update-login-account/verify.php';">Tautan Berbahaya (IP)</button>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://secure-update-login-account.com/verify';">Tautan Phishing</button>
+          <button type="button" class="quick-pill" onclick="document.getElementById('urlInput').value='https://google.com';">Tautan Resmi</button>
         </div>
       </div>
 
       <!-- Form Email -->
       <div id="emailInputContainer" style="display:none;">
-        <label for="emailInput">Isi / Teks Pesan Email</label>
+        <label for="emailInput">Isi Pesan Email</label>
         <div style="margin-top:6px;margin-bottom:12px;">
-          <textarea id="emailInput" name="text" rows="5" placeholder="Tempelkan subjek atau isi badan email di sini..." style="width:100%;border-radius:10px;border:1px solid #c8e0d5;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;background:#fbfdfc;box-sizing:border-box;resize:vertical;"></textarea>
+          <textarea id="emailInput" name="text" rows="5" placeholder="Tempelkan subjek atau isi pesan email yang mencurigakan di sini..." style="width:100%;border-radius:10px;border:1px solid #c8e0d5;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;background:#fbfdfc;box-sizing:border-box;resize:vertical;"></textarea>
         </div>
         <div class="quick-samples">
-          <span class="quick-label">⚡ Uji Cepat Email:</span>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.';">Pola Suspensi Akun</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='DHL Delivery Alert: Your package is on hold due to missing address info. Update payment now to avoid return to sender.';">Scam Kurir Paket</button>
+          <span class="quick-label">Contoh Cepat:</span>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.';">Pemberitahuan Akun Ditutup</button>
+          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='DHL Delivery Alert: Your package is on hold due to missing address info. Update payment now to avoid return to sender.';">Notifikasi Paket Tertahan</button>
           <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Hi Team, please find attached the meeting notes from yesterday. Let me know if you have any questions.';">Email Kerja Normal</button>
         </div>
       </div>
 
       <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;">
-        <span id="btnIcon">⌕</span> <span id="btnText">Jalankan Analisis Hybrid</span> <span>→</span>
+        <span id="btnIcon">⌕</span> <span id="btnText">Mulai Periksa</span> <span>→</span>
       </button>
       <p class="form-message" id="formMessage" role="status" style="margin-top:12px;font-size:12px;"></p>
     </form>
     
-    <div class="scan-footnote">⛨ &nbsp;Model ML memproses input terlebih dahulu, diikuti verifikasi independen oleh Qwen 2.5 7B.</div>
+    <div class="scan-footnote">⛨ &nbsp;Analisis dilakukan secara otomatis untuk mendeteksi tanda-tanda penipuan digital.</div>
   </section>
 
   <aside class="panel tips-panel">
     <div class="tips-icon">✧</div>
-    <h3>Prinsip Pertahanan AI</h3>
+    <h3>Tips Keamanan Digital</h3>
     <ul>
-      <li><b>XGBoost (URL)</b>: Mengekstrak 17 fitur leksikal (entropi, path ratio, IP literal, TLD, subdomain).</li>
-      <li><b>Linear SVM (Email)</b>: Memindai korpus 25.000 n-gram kata urgensi rekayasa sosial.</li>
-      <li><b>Qwen 2.5 7B</b>: Melakukan *blind second verdict* untuk mengonfirmasi atau menyanggah prediksi ML.</li>
-      <li><b>Rekonsiliasi</b>: Mendeteksi potensi *false negative* jika ML melewatkan indikasi serangan.</li>
+      <li><b>Periksa Alamat Web</b>: Perhatikan nama domain secara teliti untuk menghindari situs tiruan.</li>
+      <li><b>Waspadai Pesan Mendesak</b>: Penipu sering menakut-nakuti agar Anda panik dan langsung klik tautan.</li>
+      <li><b>Jangan Bagikan Sandi / OTP</b>: Layanan resmi tidak pernah meminta kata sandi melalui email atau chat.</li>
+      <li><b>Gembok HTTPS Bukan Jaminan</b>: Banyak situs penipuan saat ini juga sudah memakai HTTPS.</li>
     </ul>
-    <div class="soft-note">PhisGuard memadukan kecepatan klasifikasi statistik ML dengan penalaran semantik kontekstual LLM.</div>
+    <div class="soft-note">PhisGuard membantu mendeteksi ancaman awal untuk melindungi data pribadi Anda.</div>
   </aside>
 </div>
 
@@ -95,8 +96,8 @@ document.addEventListener("DOMContentLoaded", () => {
     tabEmail.style.color = "#2e6659";
     urlContainer.style.display = "block";
     emailContainer.style.display = "none";
-    panelTitle.textContent = "URL Scanner";
-    panelSubtitle.textContent = "Deteksi ancaman berbasis 17 fitur leksikal & struktural menggunakan model XGBoost.";
+    panelTitle.textContent = "Pemeriksaan Tautan URL";
+    panelSubtitle.textContent = "Pastikan tautan yang Anda terima aman sebelum membukanya di browser.";
     panelSymbol.textContent = "⌕";
     urlInput.required = true;
     emailInput.required = false;
@@ -110,8 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
     tabUrl.style.color = "#2e6659";
     urlContainer.style.display = "none";
     emailContainer.style.display = "block";
-    panelTitle.textContent = "Email Phishing Scanner";
-    panelSubtitle.textContent = "Deteksi ancaman rekayasa sosial berbasis TF-IDF 25.000 n-gram menggunakan Calibrated Linear SVM.";
+    panelTitle.textContent = "Pemeriksaan Pesan Email";
+    panelSubtitle.textContent = "Periksa apakah pesan email mengandung upaya rekayasa sosial atau penipuan.";
     panelSymbol.textContent = "✉";
     urlInput.required = false;
     emailInput.required = true;

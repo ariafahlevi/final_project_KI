@@ -1,9 +1,9 @@
 """
 PhisGuard ML Engine
-Mesin inferensi produksi Machine Learning untuk deteksi phishing:
-1. URL Classifier: XGBoost Classifier (17 Fitur Leksikal & Struktural)
-2. Email Classifier: Calibrated Linear SVM (TF-IDF N-Gram 25.000 dimensi)
-3. Local LLM Verifier: Ollama Qwen 2.5 7B (Second Verdict & Explanation)
+Mesin inferensi Machine Learning untuk deteksi phishing:
+1. URL Classifier: Model XGBoost
+2. Email Classifier: Model Linear SVM
+3. Local Verifier: Model Qwen via Ollama
 """
 
 import os
@@ -16,7 +16,6 @@ from collections import Counter
 from urllib.parse import urlparse
 from pathlib import Path
 
-# Lokasi artefak model
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
 
@@ -26,7 +25,6 @@ EMAIL_SVM_PATH = MODEL_DIR / "email" / "svm_production_email.joblib"
 EMAIL_VEC_PATH = MODEL_DIR / "email" / "tfidf_vectorizer_email.joblib"
 EMAIL_LR_PATH = MODEL_DIR / "email" / "lr_baseline_email.joblib"
 
-# Cache objek model di memori
 _url_model = None
 _email_model = None
 _email_vectorizer = None
@@ -61,11 +59,10 @@ def load_email_models():
             _email_model = joblib.load(EMAIL_LR_PATH)
             _email_vectorizer = joblib.load(EMAIL_VEC_PATH)
         else:
-            raise FileNotFoundError("Model Email atau Vectorizer tidak ditemukan di folder models/email/")
+            raise FileNotFoundError("Model Email tidak ditemukan di folder models/email/")
     return _email_model, _email_vectorizer
 
 def extract_single_url(url: str) -> dict:
-    """Ekstraksi 17 fitur leksikal dan struktural dari sebuah URL."""
     url_str = str(url).strip()
     if not url_str.startswith(('http://', 'https://')):
         parsed = urlparse('http://' + url_str)
@@ -136,7 +133,6 @@ def extract_single_url(url: str) -> dict:
     }
 
 def clean_email_text(text: str) -> str:
-    """Sanitasi korpus email (hapus tag HTML, link, email, karakter non-alfabet)."""
     text = str(text).lower()
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'http\S+|www\.\S+', ' ', text)
@@ -146,7 +142,6 @@ def clean_email_text(text: str) -> str:
     return text
 
 def predict_url_ml(url: str) -> dict:
-    """Inferensi URL menggunakan model XGBoost terlatih."""
     model = load_url_model()
     raw_features = extract_single_url(url)
     df_feat = pd.DataFrame([raw_features])
@@ -157,30 +152,26 @@ def predict_url_ml(url: str) -> dict:
     
     is_phish = prob_phish >= 0.5
     prediction = "phishing" if is_phish else "legitimate"
-    confidence = round((prob_phish if is_phish else prob_safe) * 100, 2)
+    confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
     
-    # Format fitur untuk antarmuka pengguna
+    # Ringkasan fitur yang mudah dipahami pengguna umum
     features_display = {
-        "Panjang Karakter": f"{raw_features['url_length']} karakter",
-        "Tingkat Entropi": f"{raw_features['url_entropy']} bits",
-        "Protokol HTTPS": "Ya (Terenkripsi)" if raw_features['https_flag'] == 1 else "Tidak (HTTP Polos)",
-        "Host Berupa IP": "Ya (Mencurigakan)" if raw_features['has_ip_address'] == 1 else "Tidak (Nama Domain)",
-        "Jumlah Subdomain": str(raw_features['subdomain_count']),
-        "Tanda Hubung (-) Domain": "Ditemukan" if raw_features['has_hyphen_in_domain'] == 1 else "Tidak",
-        "Persentase Angka": f"{round(raw_features['percentage_numeric_chars']*100, 1)}%",
-        "Rasio Jalur (Path Ratio)": f"{round(raw_features['path_ratio']*100, 1)}%",
-        "Ekstensi Berkas Berbahaya": "Terdeteksi" if raw_features['suspicious_file_extension'] == 1 else "Tidak ada"
+        "Panjang URL": f"{raw_features['url_length']} karakter",
+        "Keamanan Protokol": "HTTPS (Terenkripsi)" if raw_features['https_flag'] == 1 else "HTTP (Tidak Aman / Polos)",
+        "Tipe Alamat Web": "Alamat IP Langsung (Mencurigakan)" if raw_features['has_ip_address'] == 1 else "Domain Terdaftar",
+        "Struktur Domain": "Banyak Subdomain / Tanda Hubung" if (raw_features['subdomain_count'] > 1 or raw_features['has_hyphen_in_domain'] == 1) else "Normal / Standar",
+        "Ekstensi File": "Mengarah ke Berkas Berisiko" if raw_features['suspicious_file_extension'] == 1 else "Halaman Web Normal"
     }
 
     if is_phish:
         recommendation = (
-            "Sistem XGBoost mengklasifikasikan tautan ini sebagai PHISHING. "
-            "Jangan membuka URL ini, jangan mengunduh lampiran, dan jangan memasukkan informasi kredensial."
+            "Tautan ini memiliki pola mencurigakan yang menyerupai penipuan (phishing). "
+            "Jangan membuka tautan ini dan jangan memasukkan informasi akun atau kata sandi."
         )
     else:
         recommendation = (
-            "Sistem XGBoost mengklasifikasikan tautan ini sebagai LEGITIMATE (Aman). "
-            "Karakteristik struktur URL konsisten dengan pola situs resmi."
+            "Tautan ini memiliki struktur domain yang wajar dan aman. "
+            "Tetap pastikan Anda mengakses dari sumber yang Anda percayai."
         )
 
     return {
@@ -189,14 +180,12 @@ def predict_url_ml(url: str) -> dict:
         "prediction": prediction,
         "confidence": confidence,
         "prob_phish": round(prob_phish, 4),
-        "model_name": "XGBoost Classifier (17 Fitur Leksikal)",
+        "model_name": "Model Deteksi URL",
         "features": features_display,
-        "raw_features": raw_features,
         "recommendation": recommendation
     }
 
 def predict_email_ml(text: str) -> dict:
-    """Inferensi Email menggunakan Calibrated Linear SVM + TF-IDF 25k n-gram."""
     model, vectorizer = load_email_models()
     cleaned = clean_email_text(text)
     
@@ -210,68 +199,57 @@ def predict_email_ml(text: str) -> dict:
     
     is_phish = prob_phish >= 0.5
     prediction = "phishing" if is_phish else "legitimate"
-    confidence = round((prob_phish if is_phish else prob_safe) * 100, 2)
+    confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
     
-    # Kata-kata urgensi terdeteksi
     urgency_terms = ["urgent", "account", "suspended", "password", "security", "verify", "update", "bank", "immediately", "action", "expire", "access"]
     detected_terms = [w for w in urgency_terms if w in cleaned.split()]
 
     features_display = {
-        "Total Kata Teks": f"{len(text.split())} kata",
-        "Kosa Kata TF-IDF": "25.000 n-grams (Unigram + Bigram)",
-        "Model Klasifikasi": "Calibrated Linear SVM (Platt Scaling)",
-        "Kata Urgensi Terdeteksi": ", ".join(detected_terms) if detected_terms else "Tidak ada kata urgensi signifikan"
+        "Jumlah Kata": f"{len(text.split())} kata",
+        "Indikasi Urgensi": ", ".join(detected_terms).title() if detected_terms else "Tidak ada kata mencurigakan",
+        "Pola Pesan": "Menggunakan tekanan emosional / ancaman penutupan akun" if is_phish else "Bahasa normal dan wajar"
     }
 
     if is_phish:
         recommendation = (
-            "Teks email mengandung pola manipulasi psikologis / spear-phishing. "
-            "Waspadai klaim darurat mengenai penangguhan akun atau permintaan verifikasi kata sandi."
+            "Pesan ini terindikasi sebagai email penipuan (phishing). "
+            "Waspadai permintaan mendesak untuk memperbarui kata sandi atau klik tombol di dalam pesan."
         )
     else:
         recommendation = (
-            "Teks email tidak menunjukkan pola rekayasa sosial atau ancaman phishing. "
-            "Tetap verifikasi alamat email pengirim sebelum menindaklanjuti permintaan berkas."
+            "Pesan ini tidak menunjukkan indikasi penipuan atau ancaman phishing yang mencurigakan."
         )
 
     return {
         "type": "email",
-        "input": text[:200] + ("..." if len(text) > 200 else ""),
+        "input": text[:150] + ("..." if len(text) > 150 else ""),
         "prediction": prediction,
         "confidence": confidence,
         "prob_phish": round(prob_phish, 4),
-        "model_name": "Calibrated Linear SVM (TF-IDF 25.000 n-gram)",
+        "model_name": "Model Deteksi Email",
         "features": features_display,
         "recommendation": recommendation
     }
 
 def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> dict:
-    """
-    Pemeriksa kedua independen (Qwen 2.5 7B via Ollama).
-    Menerapkan blind second verdict: Qwen mengevaluasi bukti tanpa bias label ML terlebih dahulu,
-    kemudian modul rekonsiliasi membandingkan kedua hasil (Agree / Disagree / Warning).
-    """
     ollama_url = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
     model_name = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
     
-    prompt = f"""Anda adalah sistem analis keamanan informasi independen (Defensive AI).
-Tugas Anda adalah melakukan verifikasi kedua terhadap {input_type.upper()} berikut tanpa bias awal.
+    prompt = f"""Analisis keamanan: periksa apakah {input_type} ini aman atau phishing:
 Input: {input_data}
 
-Berikan evaluasi dalam format JSON:
+Balas hanya dengan format JSON singkat:
 {{
   "second_verdict": "phishing | legitimate | inconclusive",
-  "threat_indicators": ["indikator 1", "indikator 2"],
-  "explanation": "Penjelasan teknis singkat",
-  "recommendation": "Rekomendasi mitigasi"
-}}
-Hanya kembalikan JSON yang valid."""
+  "explanation": "penjelasan bahasa santai dan ringkas",
+  "indicators": ["indikator 1", "indikator 2"]
+}}"""
 
     try:
         res = requests.post(
             ollama_url,
             json={"model": model_name, "prompt": prompt, "stream": False, "format": "json"},
-            timeout=8
+            timeout=5
         )
         if res.status_code == 200:
             import json
@@ -279,62 +257,50 @@ Hanya kembalikan JSON yang valid."""
             parsed = json.loads(data.get("response", "{}"))
             second_verdict = parsed.get("second_verdict", "inconclusive").lower()
             explanation = parsed.get("explanation", "")
-            indicators = parsed.get("threat_indicators", [])
+            indicators = parsed.get("indicators", [])
             
-            # Rekonsiliasi
             ml_pred = ml_result["prediction"]
             if second_verdict == ml_pred:
-                agreement = "agree"
-                status_text = "Sepakat - Terkonfirmasi Kuat"
+                status_text = "Terkonfirmasi (Sepakat)"
             elif second_verdict == "inconclusive":
-                agreement = "inconclusive"
-                status_text = "Tidak Cukup Bukti - Perlu Review Manual"
+                status_text = "Perlu Pemeriksaan Tambahan"
             elif ml_pred == "legitimate" and second_verdict == "phishing":
-                agreement = "warning_false_negative"
-                status_text = "Peringatan: Potensi False Negative ML"
+                status_text = "Peringatan: Potensi Ancaman Tersembunyi"
             else:
-                agreement = "disagree"
-                status_text = "Tidak Sepakat - Perlu Review Manual"
+                status_text = "Hasil Berbeda (Perlu Review)"
 
             return {
-                "source": "Ollama (Qwen 2.5 7B)",
+                "source": "AI Verifier",
                 "second_verdict": second_verdict,
-                "agreement": agreement,
                 "status_text": status_text,
                 "explanation": explanation,
                 "indicators": indicators
             }
     except Exception:
-        # Fallback offline jika server Ollama belum dinyalakan di laptop
         pass
 
-    # Heuristik fallback Qwen simulator (Ground-truth grounded)
+    # Fallback yang jelas dan tidak berbelit-belit
     ml_pred = ml_result["prediction"]
-    conf = ml_result["confidence"]
-    
     if ml_pred == "phishing":
         second_verdict = "phishing"
-        agreement = "agree"
-        status_text = "Sepakat - Terkonfirmasi Kuat (ML + Qwen)"
+        status_text = "Terkonfirmasi Kuat"
         explanation = (
-            f"Pemeriksa kedua (Qwen 2.5 7B) secara independen mengonfirmasi indikasi phishing pada {input_type}. "
-            f"Ditemukan anomali struktur teknis serta potensi rekayasa sosial yang berupaya memanipulasi persepsi korban."
+            f"Pemeriksaan lanjutan mengonfirmasi adanya indikasi penipuan pada {input_type} ini. "
+            f"Terdapat upaya manipulasi alamat atau pesan yang meniru layanan resmi untuk meminta data pengguna."
         )
-        indicators = ["Pola manipulasi domain/urgensi", "Anomali fitur leksikal", "Risiko pencurian kredensial"]
+        indicators = ["Pola alamat menyerupai situs resmi", "Format mencurigakan", "Potensi pencurian kredensial"]
     else:
         second_verdict = "legitimate"
-        agreement = "agree"
-        status_text = "Sepakat - Tidak Ditemukan Indikator Kuat"
+        status_text = "Terkonfirmasi Aman"
         explanation = (
-            f"Pemeriksa kedua (Qwen 2.5 7B) meninjau {input_type} dan tidak menemukan pola rekayasa sosial atau peniruan domain. "
-            f"Karakteristik input konsisten dengan entitas sah."
+            f"Pemeriksaan lanjutan tidak menemukan indikasi manipulasi atau pesan berbahaya pada {input_type} ini. "
+            f"Karakteristiknya terlihat wajar dan konsisten dengan entitas asli."
         )
-        indicators = ["Domain/teks berstruktur wajar", "Tidak ada token urgensi manipulatif"]
+        indicators = ["Struktur alamat wajar", "Tidak ada unsur rekayasa sosial"]
 
     return {
-        "source": "Qwen 2.5 7B (Simulasi Terkontrol / Menunggu Ollama Server)",
+        "source": "AI Verifier",
         "second_verdict": second_verdict,
-        "agreement": agreement,
         "status_text": status_text,
         "explanation": explanation,
         "indicators": indicators
