@@ -9,6 +9,7 @@ Mesin inferensi Machine Learning untuk deteksi phishing:
 import os
 import re
 import math
+import json
 import joblib
 import requests
 import pandas as pd
@@ -18,6 +19,20 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
+
+def get_ollama_config():
+    config_file = BASE_DIR / "config.json"
+    default_url = "http://127.0.0.1:11434/api/generate"
+    default_model = "qwen2.5:7b"
+    if config_file.exists():
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("ollama_url", default_url), data.get("model_name", default_model)
+        except Exception:
+            pass
+    return os.environ.get("OLLAMA_URL", default_url), os.environ.get("OLLAMA_MODEL", default_model)
+
 
 URL_XGB_PATH = MODEL_DIR / "url" / "xgb_production_url.joblib"
 URL_RF_PATH = MODEL_DIR / "url" / "rf_baseline_url.joblib"
@@ -232,8 +247,7 @@ def predict_email_ml(text: str) -> dict:
     }
 
 def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> dict:
-    ollama_url = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
-    model_name = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+    ollama_url, model_name = get_ollama_config()
     
     prompt = f"""Analisis keamanan: periksa apakah {input_type} ini aman atau phishing:
 Input: {input_data}

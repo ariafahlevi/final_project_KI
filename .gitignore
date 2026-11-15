@@ -60,3 +60,7 @@ desktop.ini
 *.log
 *.sqlite3
 *.db
+
+# Local configuration
+config.json
+

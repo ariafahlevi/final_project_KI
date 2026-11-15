@@ -71,7 +71,23 @@ def analysis():
 
 @app.get("/settings")
 def settings():
-    return render_template("settings.html", active="settings")
+    ollama_url, model_name = ml_engine.get_ollama_config()
+    saved = request.args.get("saved") == "1"
+    return render_template("settings.html", active="settings", ollama_url=ollama_url, model_name=model_name, saved=saved)
+
+@app.post("/settings/ollama")
+def save_ollama_settings():
+    new_url = request.form.get("ollama_url", "").strip()
+    if new_url:
+        if not new_url.endswith("/api/generate"):
+            new_url = new_url.rstrip("/") + "/api/generate"
+        import json
+        from pathlib import Path
+        config_path = Path(__file__).resolve().parent / "config.json"
+        cfg = {"ollama_url": new_url, "model_name": "qwen2.5:7b"}
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    return redirect(url_for("settings", saved="1"))
 
 @app.post("/scan/result")
 def scan_result():

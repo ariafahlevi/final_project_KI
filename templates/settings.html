@@ -2,7 +2,52 @@
 {% block title %}Pengaturan · PhishGuard AI{% endblock %}{% block crumb %}Pengaturan{% endblock %}
 {% block content %}
 <div class="page-intro"><div class="eyebrow">PREFERENCES</div><h1>Pengaturan <span>aplikasi.</span></h1><p class="muted">Sesuaikan preferensi tampilan PhishGuard AI.</p></div>
-<div class="settings-layout"><section class="panel settings-panel"><h3>Tampilan</h3><p class="muted">Pilih mode tampilan aplikasi.</p><div class="setting-row"><div><b>Mode terang</b><small class="muted">Tema mint sage yang digunakan saat ini</small></div><span class="tag safe-tag">Aktif</span></div>
-<div class="setting-row"><div><b>Notifikasi keamanan</b><small class="muted">Pengaturan notifikasi dapat dihubungkan ke backend.</small></div><label class="switch"><input type="checkbox" checked><span></span></label></div></section>
-<section class="panel settings-panel"><h3>Tentang PhisGuard AI</h3><div class="about-brand"><img class="brand-mark" src="{{ url_for('static', filename='img/phishguard-mark.svg') }}" alt=""><div><b>PhisGuard AI</b><p class="muted">Sistem deteksi ancaman phishing hybrid berbasis Machine Learning (XGBoost & Linear SVM) dengan verifikasi independen Qwen 2.5 7B lokal.</p><small class="muted">Versi antarmuka 2.0.0 (Dual-Engine Production Ready)</small></div></div></section></div>
+<div class="settings-layout">
+  <section class="panel settings-panel">
+    <h3>Koneksi Server AI (Ollama)</h3>
+    <p class="muted">Ubah alamat link tunneling jika teman Anda merestart Ngrok.</p>
+
+    {% if saved %}
+    <div style="background:#eaf5ee;color:#2e6659;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:14px;border:1px solid #c8e7d9;">
+      ✓ Alamat server Ollama berhasil diperbarui!
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('save_ollama_settings') }}" method="POST" style="margin-top:12px;">
+      <label for="ollamaUrl" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Alamat URL Ollama</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="ollamaUrl" name="ollama_url" value="{{ ollama_url }}" placeholder="https://xxxx.ngrok-free.app/api/generate" style="flex:1;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;" required>
+        <button type="submit" class="btn btn-primary" style="padding:10px 18px;border-radius:8px;cursor:pointer;">Simpan Link</button>
+      </div>
+      <small class="muted" style="font-size:11px;">
+        Contoh: <code>https://xxxx.ngrok-free.dev/api/generate</code> atau <code>http://192.168.1.33:11434/api/generate</code>
+      </small>
+    </form>
+  </section>
+
+  <section class="panel settings-panel">
+    <h3>Tampilan</h3>
+    <p class="muted">Pilih mode tampilan aplikasi.</p>
+    <div class="setting-row">
+      <div><b>Mode terang</b><small class="muted">Tema mint sage yang digunakan saat ini</small></div>
+      <span class="tag safe-tag">Aktif</span>
+    </div>
+    <div class="setting-row">
+      <div><b>Pemeriksaan Otomatis</b><small class="muted">Verifikasi AI berjalan otomatis saat scan</small></div>
+      <label class="switch"><input type="checkbox" checked><span></span></label>
+    </div>
+  </section>
+
+  <section class="panel settings-panel">
+    <h3>Tentang PhisGuard AI</h3>
+    <div class="about-brand">
+      <img class="brand-mark" src="{{ url_for('static', filename='img/phishguard-mark.svg') }}" alt="">
+      <div>
+        <b>PhisGuard AI</b>
+        <p class="muted">Sistem deteksi ancaman phishing berbasis kecerdasan buatan.</p>
+        <small class="muted">Versi antarmuka 2.0.0 (Dual-Engine)</small>
+      </div>
+    </div>
+  </section>
+</div>
 {% endblock %}
