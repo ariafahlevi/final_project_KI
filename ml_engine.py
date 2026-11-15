@@ -20,18 +20,35 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
 
-def get_ollama_config():
+def get_app_config():
     config_file = BASE_DIR / "config.json"
-    default_url = "http://127.0.0.1:11434/api/generate"
-    default_model = "qwen2.5:7b"
+    defaults = {
+        "ollama_url": "http://127.0.0.1:11434/api/generate",
+        "model_name": "qwen2.5:7b",
+        "sensitivity": "normal",
+        "qwen_mode": "always"
+    }
     if config_file.exists():
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("ollama_url", default_url), data.get("model_name", default_model)
+                defaults.update(data)
         except Exception:
             pass
-    return os.environ.get("OLLAMA_URL", default_url), os.environ.get("OLLAMA_MODEL", default_model)
+    return defaults
+
+def get_ollama_config():
+    cfg = get_app_config()
+    return os.environ.get("OLLAMA_URL", cfg.get("ollama_url")), os.environ.get("OLLAMA_MODEL", cfg.get("model_name"))
+
+def get_threshold():
+    cfg = get_app_config()
+    sens = cfg.get("sensitivity", "normal")
+    if sens == "high":
+        return 0.40
+    elif sens == "low":
+        return 0.60
+    return 0.50
 
 
 URL_XGB_PATH = MODEL_DIR / "url" / "xgb_production_url.joblib"
@@ -174,7 +191,8 @@ def predict_url_ml(url: str) -> dict:
     prob_phish = float(prob_matrix[1])
     prob_safe = float(prob_matrix[0])
     
-    is_phish = prob_phish >= 0.5
+    threshold = get_threshold()
+    is_phish = prob_phish >= threshold
     prediction = "phishing" if is_phish else "legitimate"
     confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
     
@@ -234,7 +252,8 @@ def predict_email_ml(text: str) -> dict:
         prob_phish = 0.15
         prob_safe = 0.85
 
-    is_phish = prob_phish >= 0.5
+    threshold = get_threshold()
+    is_phish = prob_phish >= threshold
     prediction = "phishing" if is_phish else "legitimate"
     confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
 
@@ -308,8 +327,7 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
         res = requests.post(
             ollama_url,
             json={"model": model_name, "prompt": prompt, "stream": False, "format": "json"},
-            headers={"Host": "localhost:11434"},
-            timeout=5
+            timeout=18
         )
         if res.status_code == 200:
             data = res.json()

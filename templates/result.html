@@ -1,27 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Hasil Pemeriksaan & Verifikasi · PhisGuard{% endblock %}
-{% block crumb %}Hasil Pemeriksaan{% endblock %}
+{% block title %}Hasil Investigasi Keamanan · PhishGuard{% endblock %}
+{% block crumb %}Hasil Investigasi{% endblock %}
 {% block content %}
-<div class="page-intro" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+<div class="page-intro" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
   <div>
-    <div class="eyebrow">HYBRID THREAT INVESTIGATION</div>
-    <h1>Hasil <span>analisis keamanan.</span></h1>
-    <p class="muted">Perbandingan hasil klasifikasi Machine Learning dan verifikasi independen Qwen 2.5 7B.</p>
+    <div class="eyebrow">HYBRID THREAT VERIFICATION</div>
+    <h1 style="margin-bottom:4px;">Hasil <span>analisis keamanan.</span></h1>
+    <p class="muted">Keputusan terpadu dari klasifikasi Machine Learning dan penalaran kontekstual Qwen 2.5 7B.</p>
   </div>
   <div>
-    <a href="{{ url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;border-radius:10px;padding:10px 18px;font-weight:700;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(27,77,62,0.2);">
-      <span>📥</span> Unduh Laporan PDF Resmi
+    <a href="{{ url_for('download_pdf_report_by_id', aid=result.analysis_id) if result.analysis_id else url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;border-radius:10px;padding:11px 20px;font-weight:700;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(27,77,62,0.2);">
+      <span>📥</span> Unduh Laporan PDF Resmi (Bab 11)
     </a>
   </div>
 </div>
 
-<!-- Banner Status Rekonsiliasi Utama -->
-<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else 'safe-banner' }}">
+<!-- 1. Banner Status Utama -->
+<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else 'safe-banner' }}" style="margin-bottom:20px;">
   <div class="result-symbol">{{ '!' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else '✓' }}</div>
   <div class="result-copy">
-    <span class="eyebrow">KESIMPULAN REKONSILIASI HYBRID</span>
+    <span class="eyebrow">STATUS AKHIR REKONSILIASI</span>
     <h2>{{ result.status_text or ('Terindikasi Phishing' if result.prediction == 'phishing' else 'Terindikasi Aman') }}</h2>
-    <p style="word-break:break-all;font-family:monospace;font-size:12px;margin-top:4px;">{{ result.url }}</p>
+    <p style="word-break:break-all;font-family:monospace;font-size:12px;margin-top:4px;color:#183b32;">{{ result.url }}</p>
   </div>
   <div class="confidence">
     <small>Keyakinan ML</small>
@@ -29,127 +29,76 @@
   </div>
 </div>
 
-<!-- Visualisasi Alur Kerja LLM & ML (Pipeline Visualizer) -->
-<div class="panel" style="margin:20px 0;padding:18px;background:#fbfdfc;border:1px solid #c8e7d9;">
-  <div style="font-size:11px;font-weight:700;color:#2e6659;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">
-    ⚡ ALUR KERJA VERIFIKASI GANDA (DEFENSIVE PIPELINE)
-  </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <!-- Step 1 -->
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#2e6659;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">1</span>
-      <div>
-        <b style="font-size:12px;color:#183b32;display:block;">Input Target</b>
-        <small class="muted" style="font-size:11px;">{{ result.input_type|upper }}</small>
+<!-- 2. STAR OF THE SHOW: Analisis Langsung Qwen 2.5 7B -->
+<div class="panel" style="margin-bottom:20px;padding:22px;border:1px solid #b8dfcd;background:#f6fbf8;border-radius:14px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:#1b4d3e;color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;">
+        QW
       </div>
-    </div>
-    <span style="color:#7b958c;font-size:14px;">→</span>
-
-    <!-- Step 2 -->
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#2e6659;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">2</span>
       <div>
-        <b style="font-size:12px;color:#183b32;display:block;">Detektor ML</b>
-        <small style="color:{{ '#c96570' if result.prediction == 'phishing' else '#2e6659' }};font-weight:700;font-size:11px;">{{ result.prediction|upper }}</small>
-      </div>
-    </div>
-    <span style="color:#7b958c;font-size:14px;">→</span>
-
-    <!-- Step 3 -->
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#2e6659;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">3</span>
-      <div>
-        <b style="font-size:12px;color:#183b32;display:block;">Inspeksi Bukti</b>
-        <small class="muted" style="font-size:11px;">Statis & Aman</small>
-      </div>
-    </div>
-    <span style="color:#7b958c;font-size:14px;">→</span>
-
-    <!-- Step 4 -->
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#1b4d3e;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">4</span>
-      <div>
-        <b style="font-size:12px;color:#183b32;display:block;">Qwen 2.5 7B</b>
-        <small style="color:{{ '#c96570' if result.qwen and result.qwen.second_verdict == 'phishing' else '#2e6659' }};font-weight:700;font-size:11px;">
-          {{ (result.qwen.second_verdict|upper) if result.qwen else 'SELESAI' }}
+        <b style="font-size:13px;color:#183b32;display:block;">Evaluasi Analis AI (Qwen 2.5 7B)</b>
+        <small style="color:#2e6659;font-weight:700;font-size:11px;">
+          ● {{ result.qwen.source if result.qwen else 'Qwen 2.5 7B' }} &nbsp;·&nbsp; Second Verdict: <span style="text-transform:uppercase;color:{{ '#c96570' if result.qwen and result.qwen.second_verdict == 'phishing' else '#2e6659' }};">{{ result.qwen.second_verdict if result.qwen else 'SELESAI' }}</span>
         </small>
       </div>
     </div>
-    <span style="color:#7b958c;font-size:14px;">→</span>
+    <span class="tag" style="background:#eaf5ee;color:#1b4d3e;font-size:11px;padding:6px 12px;font-weight:700;">
+      {{ result.status_text }}
+    </span>
+  </div>
 
-    <!-- Step 5 -->
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#2e6659;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">5</span>
-      <div>
-        <b style="font-size:12px;color:#183b32;display:block;">Rekonsiliasi</b>
-        <small class="tag {{ 'danger-tag' if result.prediction == 'phishing' else 'safe-tag' }}" style="padding:2px 6px;font-size:10px;">
-          {{ result.status_text }}
-        </small>
-      </div>
+  <!-- Catatan Percakapan Qwen -->
+  <div style="background:#ffffff;border-left:4px solid #1b4d3e;padding:16px 18px;border-radius:8px;font-size:13.5px;line-height:1.7;color:#1e463a;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+    <b style="color:#1b4d3e;display:block;margin-bottom:6px;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">
+      💬 Pernyataan Temuan Analis AI:
+    </b>
+    "{{ result.qwen.explanation if result.qwen else 'Qwen mengevaluasi konteks secara independen tanpa bias label Machine Learning.' }}"
+  </div>
+
+  <!-- Taktik Rekayasa Sosial yang Ditangkap Qwen -->
+  {% if result.qwen and result.qwen.social_engineering %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;margin-bottom:14px;">
+    <div style="padding:10px 12px;background:#fff;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Urgensi Psikologis:</small>
+      <b style="color:#183b32;font-size:13px;">{{ result.qwen.social_engineering.urgency_level or 'Normal' }}</b>
+    </div>
+    <div style="padding:10px 12px;background:#fff;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Peniruan Entitas (Impersonation):</small>
+      <b style="color:#183b32;font-size:13px;">{{ result.qwen.social_engineering.impersonation or 'Tidak Terindikasi' }}</b>
+    </div>
+    <div style="padding:10px 12px;background:#fff;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Pengumpulan Kredensial:</small>
+      <b style="color:#183b32;font-size:13px;">{{ 'Terindikasi Form Login/PIN' if result.qwen.social_engineering.credential_harvesting else 'Tidak Ditemukan' }}</b>
+    </div>
+    <div style="padding:10px 12px;background:#fff;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Dugaan Motif Serangan:</small>
+      <b style="color:#183b32;font-size:13px;">{{ result.qwen.social_engineering.potential_objective or 'Tidak Ada' }}</b>
     </div>
   </div>
+  {% endif %}
+
+  <!-- Indikator Spesifik -->
+  {% if result.qwen and result.qwen.indicators %}
+  <div style="background:#f4fbf8;padding:12px 14px;border-radius:8px;font-size:12px;">
+    <b style="color:#2e6659;display:block;margin-bottom:4px;">Indikator Kunci yang Mendasari Keputusan:</b>
+    <ul style="margin:0;padding-left:18px;color:#355e50;line-height:1.6;">
+      {% for ind in result.qwen.indicators %}
+      <li>{{ ind }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 </div>
 
-<!-- Komparasi Berdampingan: ML vs Qwen 2.5 7B -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin:20px 0;">
-  <!-- Card ML Engine -->
-  <div class="panel" style="border-top:3px solid #2e6659;padding:18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;font-weight:700;color:#58766a;text-transform:uppercase;">1. Detektor Utama (ML)</span>
-      <span class="tag {{ 'danger-tag' if result.prediction == 'phishing' else 'safe-tag' }}">
-        {{ result.prediction|upper }}
-      </span>
-    </div>
-    <b style="font-size:15px;color:#183b32;">{{ result.model_name }}</b>
-    <p class="muted" style="font-size:12px;margin-top:6px;">
-      Kepastian statistik terhitung sebesar <b>{{ result.confidence }}%</b> berdasarkan fitur terstruktur.
-    </p>
-  </div>
-
-  <!-- Card Qwen 2.5 7B Verifier -->
-  <div class="panel" style="border-top:3px solid #1b4d3e;padding:18px;background:#f6fbf8;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:11px;font-weight:700;color:#1b4d3e;text-transform:uppercase;">2. Pemeriksa Kedua (Qwen 2.5 7B)</span>
-      <span class="tag {{ 'danger-tag' if result.qwen and result.qwen.second_verdict == 'phishing' else 'safe-tag' }}">
-        {{ (result.qwen.second_verdict|upper) if result.qwen else 'INCONCLUSIVE' }}
-      </span>
-    </div>
-    <b style="font-size:15px;color:#183b32;">Verifikasi Konteks Independen (Blind Assessment)</b>
-    <p style="font-size:12px;margin-top:6px;color:#234a3e;line-height:1.5;">
-      {{ result.qwen.explanation if result.qwen else 'Qwen mengevaluasi bukti tanpa bias label ML terlebih dahulu.' }}
-    </p>
-
-    {% if result.qwen and result.qwen.social_engineering %}
-    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #c8e7d9;display:flex;gap:6px;flex-wrap:wrap;">
-      <span style="font-size:10.5px;background:#eaf5ee;color:#2e6659;padding:3px 8px;border-radius:6px;">Urgensi: <b>{{ result.qwen.social_engineering.urgency_level }}</b></span>
-      <span style="font-size:10.5px;background:#eaf5ee;color:#2e6659;padding:3px 8px;border-radius:6px;">Entitas: <b>{{ result.qwen.social_engineering.impersonation }}</b></span>
-      <span style="font-size:10.5px;background:#eaf5ee;color:#2e6659;padding:3px 8px;border-radius:6px;">Form Login: <b>{{ 'Ya' if result.qwen.social_engineering.credential_harvesting else 'Tidak' }}</b></span>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Banner Unduh PDF Bab 11 -->
-<div class="panel" style="margin:20px 0;padding:16px 20px;background:#f3faf6;border:1px solid #b8dfcd;border-radius:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div style="width:40px;height:40px;border-radius:10px;background:#1b4d3e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">📄</div>
-    <div>
-      <b style="color:#183b32;font-size:13.5px;display:block;">Laporan Investigasi Keamanan Resmi (Format Dokumen Bab 11)</b>
-      <small class="muted" style="font-size:12px;">Dokumen PDF mencakup ID audit, bukti teknis, komparasi ML vs Qwen 2.5 7B, dan rekomendasi tindakan.</small>
-    </div>
-  </div>
-  <a href="{{ url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;padding:10px 18px;border-radius:8px;font-weight:700;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 3px 10px rgba(27,77,62,0.15);">
-    <span>📥</span> Unduh Dokumen PDF
-  </a>
-</div>
-
-<div class="content-grid result-grid">
-  <!-- Detail Parameter -->
+<!-- 3. Detail Bukti Teknis & Rekomendasi -->
+<div class="content-grid result-grid" style="margin-bottom:20px;">
+  <!-- Parameter Teknis -->
   <section class="panel">
     <div class="panel-heading">
       <div>
-        <h3>Detail Karakteristik Teknis</h3>
-        <p class="muted">Indikator keamanan yang diekstraksi dari target</p>
+        <h3>Parameter Teknis yang Diekstraksi</h3>
+        <p class="muted">Indikator leksikal dan struktural dari target yang diuji</p>
       </div>
     </div>
     <div class="detail-list">
@@ -158,42 +107,31 @@
         <span>{{ key }}</span>
         <b>{{ value }}</b>
       </div>
-      {% else %}
-      <p class="muted">Belum ada rincian data.</p>
       {% endfor %}
     </div>
   </section>
 
-  <!-- Rekomendasi & Tombol Laporan -->
+  <!-- Rekomendasi Tindakan -->
   <aside class="panel recommendation">
     <div class="recommend-icon">✧</div>
     <h3>Rekomendasi Tindakan</h3>
-    <p>{{ result.recommendation }}</p>
-    
-    {% if result.qwen and result.qwen.indicators %}
-    <div style="margin:14px 0;padding:10px;background:#f4fbf8;border-radius:8px;font-size:12px;">
-      <b style="color:#2e6659;display:block;margin-bottom:6px;">Temuan Indikator Utama:</b>
-      <ul style="padding-left:18px;margin:0;color:#476559;">
-        {% for ind in result.qwen.indicators %}
-        <li>{{ ind }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+    <p style="font-size:13px;line-height:1.7;color:#234a3e;margin-bottom:16px;">
+      {{ result.recommendation }}
+    </p>
 
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
-      <a class="btn btn-primary btn-wide" href="{{ url_for('download_pdf_report') }}">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <a class="btn btn-primary btn-wide" href="{{ url_for('download_pdf_report_by_id', aid=result.analysis_id) if result.analysis_id else url_for('download_pdf_report') }}">
         <span>📥</span> Unduh Laporan PDF Resmi
       </a>
-      <a class="btn btn-wide" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;" href="{{ url_for('analysis') }}">
-        Lihat Detail Analisis AI →
+      <a class="btn btn-wide" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;" href="{{ url_for('scanner') }}">
+        ← Periksa Target Lain
       </a>
     </div>
   </aside>
 </div>
 
-<div style="margin-top:20px;display:flex;gap:15px;align-items:center;">
-  <a class="back-link" href="{{ url_for('scanner') }}" style="margin:0;">← Periksa Target Lain</a>
-  <a class="text-link" href="{{ url_for('history') }}">Buka Riwayat Pemeriksaan →</a>
+<div style="margin-top:10px;display:flex;gap:15px;align-items:center;">
+  <a class="text-link" href="{{ url_for('history') }}">Buka Semua Riwayat Pemeriksaan (Audit Log) →</a>
+  <a class="text-link" href="{{ url_for('analysis') }}" style="margin-left:auto;">Lihat Pusat Transparansi & Evidence Bundle →</a>
 </div>
 {% endblock %}

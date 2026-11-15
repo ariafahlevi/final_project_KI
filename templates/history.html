@@ -1,57 +1,164 @@
 {% extends "base.html" %}
-{% block title %}Riwayat · PhishGuard AI{% endblock %}{% block crumb %}Riwayat{% endblock %}
+{% block title %}Riwayat Pemeriksaan · PhishGuard AI{% endblock %}
+{% block crumb %}Riwayat{% endblock %}
 {% block content %}
-<div class="page-intro"><div class="eyebrow">SCAN HISTORY</div><h1>Riwayat <span>pemeriksaan.</span></h1><p class="muted">Daftar URL yang pernah dianalisis dalam sesi ini.</p></div>
-<div class="panel recent-panel">
-  <div class="panel-heading">
-    <div>
-      <h3>Aktivitas pemeriksaan</h3>
-      <p class="muted">Riwayat hasil scan URL terkini.</p>
-    </div>
-    {% if history and history|length > 0 %}
-    <form action="{{ url_for('clear_history') }}" method="POST" style="margin:0;">
-      <button class="btn" type="submit" style="background:#feebee;color:#c96570;font-size:11px;padding:6px 12px;border-radius:8px;cursor:pointer;">✕ Bersihkan Riwayat</button>
+<div class="page-intro" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="eyebrow">AUDIT TRAIL & LOGS</div>
+    <h1>Riwayat <span>pemeriksaan keamanan.</span></h1>
+    <p class="muted">Daftar tautan URL dan pesan email yang telah diuji oleh sistem pertahanan berlapis PhisGuard.</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <form action="{{ url_for('reset_seed_history') }}" method="POST" style="margin:0;">
+      <button class="btn" type="submit" style="background:#eaf5ee;color:#2e6659;font-size:11px;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid #c8e7d9;">
+        ↺ Reset Sampel Benchmark
+      </button>
     </form>
-    {% endif %}
   </div>
-  {% if history and history|length > 0 %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>URL</th>
-          <th>Waktu</th>
-          <th>Hasil Deteksi</th>
-          <th>Tingkat Keyakinan</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in history %}
-        <tr>
-          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:12px;">{{ item.url }}</td>
-          <td>{{ item.time }}</td>
-          <td>{{ 'URL terindikasi phishing' if item.prediction == 'phishing' else 'URL terindikasi aman' }}</td>
-          <td><b>{{ item.confidence }}%</b></td>
-          <td>
-            {% if item.prediction == 'phishing' %}
-            <span class="tag danger-tag">Phishing</span>
-            {% else %}
-            <span class="tag safe-tag">Aman</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state">
-    <div>◷</div>
-    <h3>Belum ada riwayat</h3>
-    <p class="muted">Hasil scan yang Anda uji akan otomatis tersimpan di sini selama sesi aktif.</p>
-    <a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai scan URL sekarang →</a>
-  </div>
-  {% endif %}
 </div>
+
+<!-- Bar Statistik Ringkas -->
+<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+  <div style="padding:8px 14px;background:#fff;border:1px solid #d4ece1;border-radius:8px;font-size:12px;">
+    Total Audit: <b style="color:#183b32;">{{ stats.total }}</b>
+  </div>
+  <div style="padding:8px 14px;background:#fff;border:1px solid #f3c2c7;border-radius:8px;font-size:12px;">
+    Terindikasi Phishing: <b style="color:#b33946;">{{ stats.phish_count }}</b> ({{ stats.phish_pct }}%)
+  </div>
+  <div style="padding:8px 14px;background:#fff;border:1px solid #b8dfcd;border-radius:8px;font-size:12px;">
+    Terindikasi Aman: <b style="color:#2e6659;">{{ stats.safe_count }}</b> ({{ stats.safe_pct }}%)
+  </div>
+</div>
+
+<div class="panel recent-panel">
+  <form id="historyForm" method="POST">
+    <div class="panel-heading" style="flex-wrap:wrap;gap:10px;">
+      <div>
+        <h3>Daftar Log Audit Sesi Berjalan</h3>
+        <p class="muted">Pilih baris untuk menghapus sebagian, atau hapus seluruh riwayat</p>
+      </div>
+      
+      {% if history and history|length > 0 %}
+      <!-- Tombol Aksi Penghapusan (Dua Pilihan Sesuai Permintaan) -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button type="submit" id="btnDeleteSelected" formaction="{{ url_for('delete_selected_history') }}" class="btn" style="background:#fff0f2;color:#b33946;border:1px solid #f3c2c7;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;opacity:0.5;" disabled onclick="return confirm('Hapus item yang dipilih?');">
+          🗑 Hapus Terpilih (<span id="selectCount">0</span>)
+        </button>
+
+        <button type="submit" formaction="{{ url_for('clear_history') }}" class="btn" style="background:#feebee;color:#c96570;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;" onclick="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat pemeriksaan?');">
+          ✕ Hapus Semua Riwayat
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if history and history|length > 0 %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center;">
+              <input type="checkbox" id="selectAll" title="Pilih Semua" style="cursor:pointer;">
+            </th>
+            <th>Tipe</th>
+            <th>Target yang Diuji</th>
+            <th>Waktu Audit</th>
+            <th>Hasil ML</th>
+            <th>Verifikasi Qwen 2.5 7B</th>
+            <th style="text-align:right;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in history %}
+          <tr>
+            <td style="text-align:center;">
+              <input type="checkbox" name="selected_ids" value="{{ item.analysis_id }}" class="row-select" style="cursor:pointer;">
+            </td>
+            <td>
+              <span class="tag" style="background:{{ '#eaf5ee' if item.type == 'URL' else '#edf4ff' }};color:{{ '#2e6659' if item.type == 'URL' else '#2b5ea7' }};font-size:10px;font-weight:700;">
+                {{ item.type }}
+              </span>
+            </td>
+            <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:12px;">
+              {{ item.url }}
+            </td>
+            <td>{{ item.time }}</td>
+            <td>
+              {% if item.prediction == 'phishing' %}
+              <span class="tag danger-tag">Phishing ({{ item.confidence }}%)</span>
+              {% else %}
+              <span class="tag safe-tag">Aman ({{ item.confidence }}%)</span>
+              {% endif %}
+            </td>
+            <td>
+              <small style="color:#2e6659;font-weight:600;">{{ item.qwen_status }}</small>
+            </td>
+            <td style="text-align:right;">
+              <div style="display:inline-flex;gap:6px;">
+                <a href="{{ url_for('show_result_by_id', aid=item.analysis_id) }}" class="btn" style="padding:5px 10px;font-size:10.5px;background:#eaf5ee;color:#2e6659;border-radius:6px;text-decoration:none;font-weight:700;">
+                  Lihat Hasil →
+                </a>
+                <a href="{{ url_for('download_pdf_report_by_id', aid=item.analysis_id) }}" class="btn" style="padding:5px 10px;font-size:10.5px;background:#1b4d3e;color:#fff;border-radius:6px;text-decoration:none;font-weight:700;">
+                  📥 PDF
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div style="font-size:32px;color:#8bb99e;">◷</div>
+      <h3 style="margin:10px 0 4px 0;">Riwayat Pemeriksaan Kosong</h3>
+      <p class="muted" style="margin-bottom:16px;">Belum ada target yang dianalisis atau riwayat baru saja dibersihkan.</p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai Scan Target Sekarang →</a>
+        <button type="submit" formaction="{{ url_for('reset_seed_history') }}" class="btn" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;">
+          Muat Sampel Benchmark
+        </button>
+      </div>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const selectAll = document.getElementById("selectAll");
+  const rowCheckboxes = document.querySelectorAll(".row-select");
+  const btnDeleteSelected = document.getElementById("btnDeleteSelected");
+  const selectCount = document.getElementById("selectCount");
+
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll(".row-select:checked");
+    const count = checked.length;
+    if (selectCount) selectCount.textContent = count;
+    if (btnDeleteSelected) {
+      if (count > 0) {
+        btnDeleteSelected.disabled = false;
+        btnDeleteSelected.style.opacity = "1";
+      } else {
+        btnDeleteSelected.disabled = true;
+        btnDeleteSelected.style.opacity = "0.5";
+      }
+    }
+    if (selectAll) {
+      selectAll.checked = count > 0 && count === rowCheckboxes.length;
+    }
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener("change", (e) => {
+      rowCheckboxes.forEach(cb => cb.checked = e.target.checked);
+      updateSelectedCount();
+    });
+  }
+
+  rowCheckboxes.forEach(cb => {
+    cb.addEventListener("change", updateSelectedCount);
+  });
+});
+</script>
 {% endblock %}

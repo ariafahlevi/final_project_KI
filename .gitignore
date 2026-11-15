@@ -63,4 +63,5 @@ desktop.ini
 
 # Local configuration
 config.json
+history_store.json
 

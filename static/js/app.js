@@ -10,66 +10,91 @@ document.addEventListener("DOMContentLoaded", () => {
       const message = document.getElementById("formMessage");
       const button = form.querySelector("button[type=submit]");
       const scanType = document.getElementById("scanType") ? document.getElementById("scanType").value : "url";
-      const pipelineBox = document.getElementById("pipelineProgress");
       
+      const terminalBox = document.getElementById("analystTerminal");
+      const terminalBody = document.getElementById("terminalBody");
+      const qwenThoughtText = document.getElementById("qwenThoughtText");
+
       let payload = { type: scanType };
+      let targetDisplay = "";
+
       if (scanType === "url") {
         const urlInput = document.getElementById("urlInput");
         const val = urlInput.value.trim();
         if (!val) return;
         payload.url = val;
+        targetDisplay = val.length > 55 ? val.substring(0, 52) + "..." : val;
       } else {
         const emailInput = document.getElementById("emailInput");
         const val = emailInput.value.trim();
         if (!val) return;
         payload.text = val;
+        targetDisplay = val.length > 55 ? val.substring(0, 52) + "..." : val;
       }
 
-      // Aktifkan Tampilan Pipeline
-      if (pipelineBox) pipelineBox.style.display = "block";
+      // Aktifkan Terminal Forensik
+      if (terminalBox) terminalBox.style.display = "block";
+      if (terminalBody) {
+        terminalBody.innerHTML = `
+          <div style="color:#6ee7b7;">[00.00s] ⛨ PhisGuard Hybrid Defense Engine v2.1 diaktifkan.</div>
+          <div style="color:#94a3b8;">[00.08s] Target pengujian: <span style="color:#e2e8f0;font-weight:700;">${targetDisplay}</span> (${scanType.toUpperCase()})</div>
+        `;
+      }
+
       message.textContent = "Menghubungi sistem pertahanan hybrid...";
       message.style.color = "#2e6659";
       button.disabled = true;
       button.style.opacity = ".7";
 
-      function updateStep(stepId, state) {
-        const el = document.getElementById(stepId);
-        if (!el) return;
-        const num = el.querySelector(".flow-num");
-        if (state === "active") {
-          el.style.color = "#183b32";
-          el.style.fontWeight = "700";
-          if (num) {
-            num.style.background = "#2e6659";
-            num.style.color = "#ffffff";
-          }
-        } else if (state === "done") {
-          el.style.color = "#2e6659";
-          if (num) {
-            num.style.background = "#1b4d3e";
-            num.style.color = "#ffffff";
-            num.textContent = "✓";
-          }
-        }
+      const startTime = Date.now();
+      function getSec() {
+        const diff = (Date.now() - startTime) / 1000;
+        return (diff < 10 ? "0" : "") + diff.toFixed(2) + "s";
       }
 
-      // Animasi alur kerja
-      updateStep("pstep1", "active");
-      const t1 = setTimeout(() => {
-        updateStep("pstep1", "done");
-        updateStep("pstep2", "active");
-      }, 350);
+      function logTerminal(color, text) {
+        if (!terminalBody) return;
+        const line = document.createElement("div");
+        line.style.color = color;
+        line.style.marginTop = "3px";
+        line.innerHTML = `[${getSec()}] ${text}`;
+        terminalBody.appendChild(line);
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+      }
 
-      const t2 = setTimeout(() => {
-        updateStep("pstep2", "done");
-        updateStep("pstep3", "active");
-      }, 750);
+      // Simulasi Event Pipeline Forensik Real-Time
+      const timers = [];
 
-      const t3 = setTimeout(() => {
-        updateStep("pstep3", "done");
-        updateStep("pstep4", "active");
-        message.textContent = "Qwen 2.5 7B sedang mengevaluasi konteks & rekayasa sosial...";
-      }, 1200);
+      timers.push(setTimeout(() => {
+        logTerminal("#38bdf8", `🔍 <b>[Tier-1 Extractor]</b> Mengekstraksi struktur leksikal, domain, dan fitur teks n-gram...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Mempersiapkan parameter bukti teknis dari target...";
+      }, 250));
+
+      timers.push(setTimeout(() => {
+        const modelName = scanType === "url" ? "XGBoost Classifier" : "Bilingual Linear SVM";
+        logTerminal("#fbbf24", `⚡ <b>[Tier-1 ML Engine]</b> Menjalankan inferensi model statistik (${modelName})...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = `Menguji kecocokan dengan pola dataset (100.000+ sampel)...`;
+      }, 700));
+
+      timers.push(setTimeout(() => {
+        logTerminal("#a7f3d0", `📦 <b>[Evidence Bundler]</b> Menyusun Evidence Bundle untuk verifikasi independen (Blind Assessment)...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Mengirim paket bukti ke Qwen 2.5 7B tanpa bias label awal...";
+      }, 1200));
+
+      timers.push(setTimeout(() => {
+        logTerminal("#34d399", `🤖 <b>[Qwen 2.5 7B AI Analyst]</b> Menghubungi server LLM Ollama via tunneling...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Qwen 2.5 7B sedang membaca isi target dan menelaah motif rekayasa sosial...";
+      }, 1800));
+
+      timers.push(setTimeout(() => {
+        logTerminal("#e2e8f0", `💬 <b>[Qwen Reasoning]</b> Mengkaji indikator urgensi psikologis, ancaman akun, dan domain spoofing...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Menganalisis manipulasi psikologis, peniruan identitas, dan form login...";
+      }, 3200));
+
+      timers.push(setTimeout(() => {
+        logTerminal("#f472b6", `💬 <b>[Qwen Reasoning]</b> Memeriksa form pengumpulan kredensial / muatan APK berbahaya...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Menyusun evaluasi kualitatif dan rekomendasi mitigasi...";
+      }, 5500));
 
       try {
         const response = await fetch("/api/scan", {
@@ -78,9 +103,8 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify(payload)
         });
 
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
+        // Bersihkan timer simulasi yang belum berjalan
+        timers.forEach(t => clearTimeout(t));
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
@@ -89,13 +113,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = await response.json();
 
-        // Tandai step 4 & 5 selesai
-        updateStep("pstep1", "done");
-        updateStep("pstep2", "done");
-        updateStep("pstep3", "done");
-        updateStep("pstep4", "done");
-        updateStep("pstep5", "done");
-        message.textContent = "Verifikasi selesai! Menyiapkan hasil & laporan PDF...";
+        // Tampilkan keputusan final di terminal
+        const qwenVerdict = data.qwen ? data.qwen.second_verdict : data.prediction;
+        const finalStatus = data.status_text || "Terkonfirmasi";
+        const colorVerdict = (data.prediction === "phishing" || qwenVerdict === "phishing") ? "#f87171" : "#4ade80";
+
+        logTerminal(colorVerdict, `⚖️ <b>[Konsensus Bab 10]</b> Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | Qwen: ${qwenVerdict.toUpperCase()}`);
+        
+        if (data.qwen && data.qwen.explanation) {
+          const shortExpl = data.qwen.explanation.length > 90 ? data.qwen.explanation.substring(0, 87) + "..." : data.qwen.explanation;
+          logTerminal("#6ee7b7", `💬 <b>[Pernyataan Qwen 2.5 7B]</b>: "${shortExpl}"`);
+          if (qwenThoughtText) qwenThoughtText.textContent = `Qwen: "${shortExpl}"`;
+        }
+
+        logTerminal("#93c5fd", `📄 <b>[PDF Report Engine]</b> Menyusun laporan audit forensik resmi (Bab 11)...`);
+        message.textContent = "Verifikasi selesai! Membuka laporan hasil investigasi...";
 
         // Kirim hasil ke sesi hasil Flask
         const resultResponse = await fetch("/scan/result", {
@@ -112,13 +144,16 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             window.location.href = "/result";
           }
-        }, 400);
+        }, 600);
 
       } catch (error) {
+        timers.forEach(t => clearTimeout(t));
+        logTerminal("#ef4444", `❌ <b>[Error Pipeline]</b> ${error.message}`);
         message.style.color = "#c96570";
-        message.textContent = error.message + " Pastikan server berjalan normal.";
+        message.textContent = error.message + " Periksa menu Pengaturan.";
         button.disabled = false;
         button.style.opacity = "1";
+        if (qwenThoughtText) qwenThoughtText.textContent = "Pemeriksaan terhenti karena kendala koneksi atau server.";
       }
     });
   }

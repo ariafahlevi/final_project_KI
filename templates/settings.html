@@ -1,53 +1,162 @@
 {% extends "base.html" %}
-{% block title %}Pengaturan · PhishGuard AI{% endblock %}{% block crumb %}Pengaturan{% endblock %}
+{% block title %}Pengaturan & Diagnostik · PhishGuard AI{% endblock %}
+{% block crumb %}Pengaturan{% endblock %}
 {% block content %}
-<div class="page-intro"><div class="eyebrow">PREFERENCES</div><h1>Pengaturan <span>aplikasi.</span></h1><p class="muted">Sesuaikan preferensi tampilan PhishGuard AI.</p></div>
-<div class="settings-layout">
-  <section class="panel settings-panel">
-    <h3>Koneksi Server AI (Ollama)</h3>
-    <p class="muted">Ubah alamat link tunneling jika teman Anda merestart Ngrok.</p>
-
-    {% if saved %}
-    <div style="background:#eaf5ee;color:#2e6659;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;margin-bottom:14px;border:1px solid #c8e7d9;">
-      ✓ Alamat server Ollama berhasil diperbarui!
-    </div>
-    {% endif %}
-
-    <form action="{{ url_for('save_ollama_settings') }}" method="POST" style="margin-top:12px;">
-      <label for="ollamaUrl" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Alamat URL Ollama</label>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input type="text" id="ollamaUrl" name="ollama_url" value="{{ ollama_url }}" placeholder="https://xxxx.ngrok-free.app/api/generate" style="flex:1;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;" required>
-        <button type="submit" class="btn btn-primary" style="padding:10px 18px;border-radius:8px;cursor:pointer;">Simpan Link</button>
-      </div>
-      <small class="muted" style="font-size:11px;">
-        Contoh: <code>https://xxxx.ngrok-free.dev/api/generate</code> atau <code>http://192.168.1.33:11434/api/generate</code>
-      </small>
-    </form>
-  </section>
-
-  <section class="panel settings-panel">
-    <h3>Tampilan</h3>
-    <p class="muted">Pilih mode tampilan aplikasi.</p>
-    <div class="setting-row">
-      <div><b>Mode terang</b><small class="muted">Tema mint sage yang digunakan saat ini</small></div>
-      <span class="tag safe-tag">Aktif</span>
-    </div>
-    <div class="setting-row">
-      <div><b>Pemeriksaan Otomatis</b><small class="muted">Verifikasi AI berjalan otomatis saat scan</small></div>
-      <label class="switch"><input type="checkbox" checked><span></span></label>
-    </div>
-  </section>
-
-  <section class="panel settings-panel">
-    <h3>Tentang PhisGuard AI</h3>
-    <div class="about-brand">
-      <img class="brand-mark" src="{{ url_for('static', filename='img/phishguard-mark.svg') }}" alt="">
-      <div>
-        <b>PhisGuard AI</b>
-        <p class="muted">Sistem deteksi ancaman phishing berbasis kecerdasan buatan.</p>
-        <small class="muted">Versi antarmuka 2.0.0 (Dual-Engine)</small>
-      </div>
-    </div>
-  </section>
+<div class="page-intro">
+  <div class="eyebrow">SYSTEM CONFIGURATION & DIAGNOSTICS</div>
+  <h1>Pengaturan <span>sistem deteksi.</span></h1>
+  <p class="muted">Konfigurasi alamat server AI, sensitivitas model machine learning, dan diagnostik jalur tunneling.</p>
 </div>
+
+{% if saved %}
+<div style="background:#eaf5ee;color:#2e6659;padding:12px 16px;border-radius:10px;font-size:12.5px;font-weight:700;margin-bottom:18px;border:1px solid #c8e7d9;display:flex;align-items:center;gap:8px;">
+  <span>✓</span> Konfigurasi sistem berhasil disimpan dan langsung diterapkan ke mesin inferensi!
+</div>
+{% endif %}
+
+<form action="{{ url_for('save_settings') }}" method="POST">
+  <div class="settings-layout">
+    <!-- 1. Konfigurasi Server AI (Ollama) -->
+    <section class="panel settings-panel">
+      <h3>1. Koneksi Server AI (Ollama)</h3>
+      <p class="muted">Alamat server tempat model Qwen 2.5 7B berjalan (lokal atau melalui tunneling Ngrok).</p>
+
+      <div style="margin-top:14px;">
+        <label for="ollamaUrl" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">URL Endpoint Ollama</label>
+        <input type="text" id="ollamaUrl" name="ollama_url" value="{{ ollama_url }}" placeholder="https://xxxx.ngrok-free.dev/api/generate" style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;" required>
+        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
+          Contoh: <code>https://xxxx.ngrok-free.dev/api/generate</code>
+        </small>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label for="modelName" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Nama Model LLM</label>
+        <input type="text" id="modelName" name="model_name" value="{{ model_name }}" placeholder="qwen2.5:7b" style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
+          Standar proyek: <code>qwen2.5:7b</code>
+        </small>
+      </div>
+
+      <!-- Live Diagnostic Button -->
+      <div style="border-top:1px solid #e5ece7;padding-top:14px;margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <b style="font-size:12px;color:#183b32;">Diagnostik Jalur Tunneling:</b>
+          <button type="button" id="btnTestOllama" class="btn" style="background:#1b4d3e;color:#fff;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;">
+            ⚡ Uji Koneksi Ollama
+          </button>
+        </div>
+
+        <div id="testResultBox" style="display:none;margin-top:12px;padding:12px 14px;border-radius:8px;font-size:12px;line-height:1.5;"></div>
+      </div>
+    </section>
+
+    <!-- 2. Tingkat Sensitivitas Deteksi ML & Verifikasi Qwen -->
+    <section class="panel settings-panel">
+      <h3>2. Kebijakan & Sensitivitas Keamanan</h3>
+      <p class="muted">Tentukan ambang batas (*decision threshold*) klasifikasi phishing dan intensitas LLM.</p>
+
+      <!-- Sensitivitas -->
+      <div style="margin-top:14px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:8px;">Tingkat Sensitivitas Deteksi</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
+            <input type="radio" name="sensitivity" value="high" {% if sensitivity == 'high' %}checked{% endif %} style="margin-top:3px;">
+            <div>
+              <b style="font-size:12px;color:#183b32;display:block;">Tinggi / Protektif (Ambang Batas 40%)</b>
+              <small class="muted" style="font-size:11px;">Mencegat ancaman lebih agresif. Cocok untuk lingkungan perbankan atau email perusahaan.</small>
+            </div>
+          </label>
+
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
+            <input type="radio" name="sensitivity" value="normal" {% if sensitivity == 'normal' or not sensitivity %}checked{% endif %} style="margin-top:3px;">
+            <div>
+              <b style="font-size:12px;color:#183b32;display:block;">Standar Seimbang (Ambang Batas 50% - Rekomendasi)</b>
+              <small class="muted" style="font-size:11px;">Keseimbangan optimal antara pencegahan phishing dan minimalisasi *false alarm*.</small>
+            </div>
+          </label>
+
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
+            <input type="radio" name="sensitivity" value="low" {% if sensitivity == 'low' %}checked{% endif %} style="margin-top:3px;">
+            <div>
+              <b style="font-size:12px;color:#183b32;display:block;">Konservatif (Ambang Batas 60%)</b>
+              <small class="muted" style="font-size:11px;">Hanya menandai jika bukti sangat kuat. Sangat minim salah blokir.</small>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Mode Verifikasi Qwen -->
+      <div style="margin-top:16px;border-top:1px solid #e5ece7;padding-top:14px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:8px;">Mode Inferensi Qwen 2.5 7B</label>
+        <select name="qwen_mode" style="width:100%;padding:10px 12px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;background:#fff;">
+          <option value="always" {% if qwen_mode == 'always' or not qwen_mode %}selected{% endif %}>
+            Verifikasi Penuh (Selalu Evaluasi Narasi Konteks & Rekayasa Sosial)
+          </option>
+          <option value="selective" {% if qwen_mode == 'selective' %}selected{% endif %}>
+            Verifikasi Selektif (Panggil Qwen Hanya Saat Skor ML Berada di Zona Ragu-ragu)
+          </option>
+        </select>
+        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
+          Pilih *Verifikasi Penuh* agar komentar dan analisis analis Qwen 2.5 7B selalu aktif pada setiap hasil scan.
+        </small>
+      </div>
+    </section>
+  </div>
+
+  <!-- Tombol Simpan Konfigurasi -->
+  <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:12px;">
+    <button type="submit" class="btn btn-primary" style="padding:12px 28px;font-size:12px;border-radius:10px;font-weight:700;">
+      Simpan Perubahan Pengaturan
+    </button>
+  </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const btnTest = document.getElementById("btnTestOllama");
+  const resultBox = document.getElementById("testResultBox");
+
+  if (btnTest && resultBox) {
+    btnTest.addEventListener("click", async () => {
+      btnTest.disabled = true;
+      btnTest.textContent = "⏳ Memeriksa...";
+      resultBox.style.display = "block";
+      resultBox.style.background = "#f4fbf8";
+      resultBox.style.border = "1px solid #c8e7d9";
+      resultBox.style.color = "#2e6659";
+      resultBox.textContent = "Menghubungi endpoint Ollama...";
+
+      try {
+        const res = await fetch("/api/test-ollama", { method: "POST" });
+        const data = await res.json();
+
+        if (res.status === 200) {
+          resultBox.style.background = "#eaf5ee";
+          resultBox.style.border = "1px solid #5c9f88";
+          resultBox.style.color = "#183b32";
+          resultBox.innerHTML = `<b>✓ KONEKSI AKTIF (${data.latency_ms} ms)</b><br>${data.message}`;
+        } else if (res.status === 403) {
+          resultBox.style.background = "#fff8f0";
+          resultBox.style.border = "1px solid #f0b27a";
+          resultBox.style.color = "#a04000";
+          resultBox.innerHTML = `<b>⚠️ STATUS 403 FORBIDDEN</b><br>${data.message}`;
+        } else {
+          resultBox.style.background = "#feebee";
+          resultBox.style.border = "1px solid #f3c2c7";
+          resultBox.style.color = "#b33946";
+          resultBox.innerHTML = `<b>✕ KONEKSI GAGAL (${res.status})</b><br>${data.message}`;
+        }
+      } catch (err) {
+        resultBox.style.background = "#feebee";
+        resultBox.style.border = "1px solid #f3c2c7";
+        resultBox.style.color = "#b33946";
+        resultBox.innerHTML = `<b>✕ GAGAL TERHUBUNG</b><br>${err.message}`;
+      } finally {
+        btnTest.disabled = false;
+        btnTest.textContent = "⚡ Uji Koneksi Ollama";
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

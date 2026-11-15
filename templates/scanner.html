@@ -55,37 +55,42 @@
         </div>
       </div>
 
-      <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;">
+      <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;" id="submitScanBtn">
         <span id="btnIcon">⌕</span> <span id="btnText">Mulai Periksa</span> <span>→</span>
       </button>
-      <p class="form-message" id="formMessage" role="status" style="margin-top:12px;font-size:12px;"></p>
+      <p class="form-message" id="formMessage" role="status" style="margin-top:10px;font-size:12px;"></p>
 
-      <!-- Live Stepper Alur Kerja LLM & ML -->
-      <div id="pipelineProgress" style="display:none;margin-top:16px;padding:16px;background:#f6fbf8;border:1px solid #c8e7d9;border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e6659;box-shadow:0 0 0 3px rgba(46,102,89,0.2);"></span>
-          <b style="color:#1b4d3e;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;">Alur Kerja Pemeriksaan Berlapis Sedang Berjalan:</b>
+      <!-- LIVE TERMINAL AKTIVITAS FORENSIK & REASONING QWEN 2.5 7B -->
+      <div id="analystTerminal" style="display:none;margin-top:18px;border-radius:12px;overflow:hidden;border:1px solid #1e3a31;box-shadow:0 8px 24px rgba(10,30,22,0.15);">
+        <!-- Terminal Header -->
+        <div style="background:#0c1c15;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e3a31;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;"></span>
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;"></span>
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#10b981;"></span>
+            <span style="margin-left:6px;font-family:monospace;font-size:11px;color:#94a3b8;letter-spacing:0.5px;">phisguard-analyst-console://hybrid-pipeline</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;animation:pulse 1.5s infinite;"></span>
+            <span style="font-family:monospace;font-size:10.5px;color:#10b981;font-weight:700;">INSPECTION ACTIVE</span>
+          </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:9px;">
-          <div class="flow-step" id="pstep1" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
-            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">1</span>
-            <span><b>Tahap 1: Ekstraksi Bukti</b> — Parameter teknis & struktur diurai</span>
+
+        <!-- Terminal Output Screen -->
+        <div id="terminalBody" style="background:#08130e;padding:14px 16px;font-family:'Courier New',Consolas,monospace;font-size:12px;color:#e2e8f0;line-height:1.6;min-height:140px;max-height:220px;overflow-y:auto;">
+          <div style="color:#6ee7b7;">[00.00s] ⛨ PhisGuard Hybrid Defense Engine v2.1 diinisialisasi...</div>
+        </div>
+
+        <!-- Active Qwen Thought Callout -->
+        <div id="qwenLiveThought" style="background:#0e241c;padding:12px 16px;border-top:1px solid #1b4d3e;display:flex;align-items:flex-start;gap:12px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:#1b4d3e;color:#6ee7b7;display:grid;place-items:center;font-weight:800;font-size:11px;flex-shrink:0;">
+            QW
           </div>
-          <div class="flow-step" id="pstep2" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
-            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">2</span>
-            <span><b>Tahap 2: Detektor Machine Learning</b> — Menghitung probabilitas awal</span>
-          </div>
-          <div class="flow-step" id="pstep3" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
-            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">3</span>
-            <span><b>Tahap 3: Evidence Bundle</b> — Bukti dikemas untuk audit objektif</span>
-          </div>
-          <div class="flow-step" id="pstep4" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
-            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">4</span>
-            <span><b>Tahap 4: Verifikasi Qwen 2.5 7B</b> — Evaluasi konteks bahasa & rekayasa sosial</span>
-          </div>
-          <div class="flow-step" id="pstep5" style="display:flex;align-items:center;gap:10px;font-size:12px;color:#7b958c;transition:all 0.3s ease;">
-            <span class="flow-num" style="width:20px;height:20px;border-radius:50%;background:#e0ede7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#2e6659;">5</span>
-            <span><b>Tahap 5: Rekonsiliasi & Siapkan PDF</b> — Keputusan ganda terpadu</span>
+          <div style="font-size:11.5px;color:#cbf0e1;">
+            <b style="color:#6ee7b7;display:block;margin-bottom:2px;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;">
+              Aktivitas Penalaran Analis AI (Qwen 2.5 7B):
+            </b>
+            <span id="qwenThoughtText">Menyiapkan Evidence Bundle untuk pemeriksaan independen...</span>
           </div>
         </div>
       </div>
