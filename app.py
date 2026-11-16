@@ -508,7 +508,8 @@ def save_settings():
 
     return redirect(url_for("settings", saved="1"))
 
-@app.post("/api/test-ollama")
+@app.route("/api/test-ollama", methods=["GET", "POST"])
+@app.get("/api/ollama-status")
 def test_ollama():
     """Uji koneksi cepat ke endpoint Ollama tanpa timeout."""
     ollama_url, model_name = ml_engine.get_ollama_config()
@@ -602,6 +603,8 @@ def api_scan():
         "prob_phish": ml_res["prob_phish"],
         "model_name": ml_res["model_name"],
         "features": ml_res["features"],
+        "live_inspection": ml_res.get("live_inspection", {}),
+        "embedded_links_audit": ml_res.get("embedded_links_audit", {}),
         "recommendation": ml_res["recommendation"],
         "qwen": qwen_res,
         "status_text": qwen_res["status_text"]

@@ -3,6 +3,38 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
   if (toggle && sidebar) toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
+  // Cek Status Koneksi Ollama secara Asinkron (Non-blocking)
+  const topBadge = document.getElementById("topEngineBadge");
+  const topDot = document.getElementById("topEngineDot");
+  const topText = document.getElementById("topEngineText");
+  if (topBadge && topDot && topText) {
+    fetch("/api/ollama-status")
+      .then(r => r.json())
+      .then(res => {
+        if (res.status === "online") {
+          topDot.style.background = "#10b981";
+          topDot.style.boxShadow = "0 0 6px #10b981";
+          topText.textContent = `Dual-Engine: Ollama Live (${res.latency_ms}ms)`;
+          topBadge.title = res.message;
+          topBadge.style.borderColor = "#a7f3d0";
+          topBadge.style.background = "#ecfdf5";
+          topBadge.style.color = "#065f46";
+        } else {
+          topDot.style.background = "#f59e0b";
+          topDot.style.boxShadow = "0 0 6px #f59e0b";
+          topText.textContent = "Dual-Engine: Fallback Active";
+          topBadge.title = "Ollama tidak terhubung. Menggunakan Engine Cadangan Otomatis.";
+          topBadge.style.borderColor = "#fde68a";
+          topBadge.style.background = "#fffbeb";
+          topBadge.style.color = "#92400e";
+        }
+      })
+      .catch(() => {
+        topDot.style.background = "#f59e0b";
+        topText.textContent = "Dual-Engine: Fallback Active";
+      });
+  }
+
   const form = document.getElementById("scanForm");
   if (form) {
     form.addEventListener("submit", async (event) => {
@@ -117,6 +149,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const qwenVerdict = data.qwen ? data.qwen.second_verdict : data.prediction;
         const finalStatus = data.status_text || "Terkonfirmasi";
         const colorVerdict = (data.prediction === "phishing" || qwenVerdict === "phishing") ? "#f87171" : "#4ade80";
+
+        // Tampilkan status koneksi Ollama dan audit tautan
+        if (data.embedded_links_audit && data.embedded_links_audit.total_links > 0) {
+          const lAudit = data.embedded_links_audit;
+          if (lAudit.has_phishing_link) {
+            logTerminal("#ef4444", `🚨 <b>[Deep Link Alert]</b> Ditemukan tautan phishing di dalam email! Seluruh ancaman dieskalasi.`);
+          } else {
+            logTerminal("#34d399", `✅ <b>[Deep Link Audit]</b> ${lAudit.total_links} tautan tersemat terverifikasi aman & normal.`);
+          }
+        }
+
+        if (data.qwen) {
+          if (data.qwen.is_live_ollama) {
+            logTerminal("#10b981", `🟢 <b>[AI Evaluator]</b> Qwen 2.5 7B terhubung langsung via Ollama (${data.qwen.model_name}).`);
+          } else {
+            logTerminal("#f59e0b", `🟡 <b>[AI Fallback]</b> Ollama offline/timeout. Evaluasi independen diselesaikan oleh Engine Verifier Cadangan.`);
+          }
+        }
 
         logTerminal(colorVerdict, `⚖️ <b>[Konsensus Bab 10]</b> Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | Qwen: ${qwenVerdict.toUpperCase()}`);
         

@@ -37,9 +37,25 @@
         QW
       </div>
       <div>
-        <b style="font-size:13px;color:#183b32;display:block;">Evaluasi Analis AI (Qwen 2.5 7B)</b>
-        <small style="color:#2e6659;font-weight:700;font-size:11px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:13.5px;color:#183b32;">Evaluasi Analis AI (Qwen 2.5 7B)</b>
+          {% if result.qwen and result.qwen.is_live_ollama %}
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#e2f5ea;color:#1e7e34;border:1px solid #b8dfcd;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 5px #10b981;"></span>
+            Ollama Live (qwen2.5:7b)
+          </span>
+          {% else %}
+          <span style="display:inline-flex;align-items:center;gap:5px;background:#fff8e6;color:#b45309;border:1px solid #fde68a;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;" title="{{ result.qwen.ollama_error_detail if result.qwen else 'Ollama Offline / Timeout' }}">
+            <span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+            Mode Cadangan (Engine Verifier)
+          </span>
+          {% endif %}
+        </div>
+        <small style="color:#2e6659;font-weight:700;font-size:11px;margin-top:2px;display:block;">
           ● {{ result.qwen.source if result.qwen else 'Qwen 2.5 7B' }} &nbsp;·&nbsp; Second Verdict: <span style="text-transform:uppercase;color:{{ '#c96570' if result.qwen and result.qwen.second_verdict == 'phishing' else '#2e6659' }};">{{ result.qwen.second_verdict if result.qwen else 'SELESAI' }}</span>
+          {% if result.qwen and not result.qwen.is_live_ollama and result.qwen.ollama_error_detail %}
+          <span style="display:block;color:#92400e;font-size:10.5px;font-weight:500;margin-top:2px;">⚠️ {{ result.qwen.ollama_error_detail }}</span>
+          {% endif %}
         </small>
       </div>
     </div>
@@ -90,6 +106,128 @@
   </div>
   {% endif %}
 </div>
+
+<!-- 2b. Audit Tautan Tersemat di dalam Email (Deep Link Extraction & Multi-Stage Inspection) -->
+{% if result.embedded_links_audit and result.embedded_links_audit.total_links > 0 %}
+<div class="panel" style="margin-bottom:20px;padding:22px;border-radius:14px;border:1px solid {{ '#fca5a5' if result.embedded_links_audit.has_phishing_link else '#b8dfcd' }};background:{{ '#fff8f8' if result.embedded_links_audit.has_phishing_link else '#f8fcf9' }};">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h3 style="margin:0;font-size:14px;color:{{ '#991b1b' if result.embedded_links_audit.has_phishing_link else '#183b32' }};display:flex;align-items:center;gap:7px;">
+        <span>{{ '🚨' if result.embedded_links_audit.has_phishing_link else '🔗' }}</span>
+        Audit Tautan Tersemat di dalam Email (Deep Link Extraction)
+      </h3>
+      <p class="muted" style="margin:3px 0 0;font-size:11.5px;">
+        Ditemukan {{ result.embedded_links_audit.total_links }} tautan di dalam email. Setiap tautan diuji secara otonom oleh Tier-1 XGBoost URL Detector & Live Web Inspector.
+      </p>
+    </div>
+    <span class="tag" style="background:{{ '#fee2e2' if result.embedded_links_audit.has_phishing_link else '#eaf5ee' }};color:{{ '#b91c1c' if result.embedded_links_audit.has_phishing_link else '#1b4d3e' }};font-weight:700;font-size:11px;">
+      {{ 'Tautan Phishing Terdeteksi' if result.embedded_links_audit.has_phishing_link else 'Semua Tautan Terverifikasi Aman' }}
+    </span>
+  </div>
+
+  {% if result.embedded_links_audit.has_phishing_link %}
+  <div style="background:#fee2e2;border-left:4px solid #ef4444;padding:12px 14px;border-radius:6px;color:#991b1b;font-size:12.5px;margin-bottom:14px;line-height:1.6;">
+    <b>⚠️ Eskalasi Ancaman:</b> Ditemukan tautan phishing di dalam narasi email ini. Berdasarkan metodologi Threat Modeling (STRIDE / Attack Tree), keberadaan tautan jebakan secara otomatis mengeskalasi seluruh status email menjadi <b>PHISHING</b> terlepas dari apakah gaya bahasa email tampak formal atau sopan.
+  </div>
+  {% endif %}
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+      <thead>
+        <tr style="background:#f1f5f9;color:#475569;text-align:left;border-bottom:1px solid #cbd5e1;">
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;">URL Tersemat</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;">Root Domain</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;">Klasifikasi XGBoost</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;">Keyakinan</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;">Status Live Web & Judul Halaman</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for link in result.embedded_links_audit.links %}
+        <tr style="border-bottom:1px solid #f1f5f9;background:{{ '#fef2f2' if link.is_phishing else 'transparent' }};">
+          <td style="padding:9px 12px;font-family:monospace;font-size:11px;word-break:break-all;max-width:220px;color:#0f172a;">
+            {{ link.url }}
+          </td>
+          <td style="padding:9px 12px;font-weight:600;color:#1e293b;">
+            {{ link.root_domain or '-' }}
+          </td>
+          <td style="padding:9px 12px;">
+            {% if link.is_phishing %}
+            <span style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:4px;font-weight:700;font-size:10.5px;">PHISHING</span>
+            {% else %}
+            <span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:4px;font-weight:700;font-size:10.5px;">LEGITIMATE</span>
+            {% endif %}
+          </td>
+          <td style="padding:9px 12px;font-weight:700;color:{{ '#b91c1c' if link.is_phishing else '#15803d' }};">
+            {{ link.confidence }}%
+          </td>
+          <td style="padding:9px 12px;color:#475569;font-size:11px;">
+            <b style="color:{{ '#15803d' if '200' in link.live_status else '#b45309' }};">{{ link.live_status }}</b>
+            {% if link.page_title and link.page_title != 'Tidak dapat diambil' %}
+            · {{ link.page_title[:45] }}
+            {% endif %}
+            {% if link.brand_spoofing %}
+            <div style="color:#dc2626;font-weight:700;font-size:10.5px;margin-top:2px;">⚠️ {{ link.brand_spoofing_alert }}</div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 2c. Bukti Live Web Inspection (Pemeriksaan Langsung ke Server Target) -->
+{% if result.live_inspection and result.live_inspection.http_status and result.live_inspection.http_status != 'Belum Terhubung' %}
+<div class="panel" style="margin-bottom:20px;padding:22px;border-radius:14px;border:1px solid #b8dfcd;background:#ffffff;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <div>
+      <h3 style="margin:0;font-size:14px;color:#183b32;display:flex;align-items:center;gap:7px;">
+        <span>🌐</span> Bukti Live Web Inspection (Koneksi Langsung ke Server Target)
+      </h3>
+      <p class="muted" style="margin:3px 0 0;font-size:11.5px;">
+        Sistem PhisGuard melakukan koneksi HTTP langsung secara transparan untuk memvalidasi keaslian halaman dan proteksi WAF.
+      </p>
+    </div>
+    <span class="tag" style="background:{{ '#dcfce7' if '200' in result.live_inspection.http_status else '#fef3c7' }};color:{{ '#15803d' if '200' in result.live_inspection.http_status else '#b45309' }};font-weight:700;font-size:11px;">
+      {{ result.live_inspection.http_status }}
+    </span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;margin-bottom:14px;">
+    <div style="padding:10px 12px;background:#f8fcf9;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Judul Halaman Web (Page Title):</small>
+      <b style="color:#183b32;font-size:12.5px;word-break:break-word;">{{ result.live_inspection.page_title or 'Tidak terdeteksi' }}</b>
+    </div>
+    <div style="padding:10px 12px;background:#f8fcf9;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Struktur Domain & Subdomain:</small>
+      <b style="color:#183b32;font-size:12.5px;">{{ result.live_inspection.root_domain }} (Sub: {{ result.live_inspection.subdomain }})</b>
+    </div>
+    <div style="padding:10px 12px;background:#f8fcf9;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Formulir Login / Input Sandi:</small>
+      <b style="color:{{ '#b91c1c' if result.live_inspection.has_login_form or result.live_inspection.has_password_field else '#183b32' }};font-size:12.5px;">
+        {{ 'Terindikasi Form Login / Password' if result.live_inspection.has_login_form or result.live_inspection.has_password_field else 'Tidak Ditemukan' }}
+      </b>
+    </div>
+    <div style="padding:10px 12px;background:#f8fcf9;border:1px solid #d4ece1;border-radius:8px;">
+      <small style="color:#718f84;font-size:10.5px;display:block;">Proteksi WAF / Cloudflare Block:</small>
+      <b style="color:{{ '#b91c1c' if result.live_inspection.waf_phishing_block else '#183b32' }};font-size:12.5px;">
+        {{ 'TERDETEKSI (Blokir Phishing Cloudflare Aktif)' if result.live_inspection.waf_phishing_block else 'Normal' }}
+      </b>
+    </div>
+  </div>
+
+  {% if result.live_inspection.page_snippet and result.live_inspection.page_snippet != 'Halaman kosong' %}
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:12px 14px;border-radius:8px;">
+    <small style="color:#64748b;font-size:10.5px;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+      📄 Bukti Cuplikan Konten Teks Halaman yang Berhasil Diambil (Page Text Snippet):
+    </small>
+    <div style="font-family:monospace;font-size:11.5px;color:#334155;line-height:1.6;max-height:90px;overflow-y:auto;white-space:pre-wrap;background:#ffffff;padding:8px 10px;border-radius:4px;border:1px solid #edf2f7;">{{ result.live_inspection.page_snippet }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 
 <!-- 3. Detail Bukti Teknis & Rekomendasi -->
 <div class="content-grid result-grid" style="margin-bottom:20px;">

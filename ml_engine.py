@@ -401,6 +401,86 @@ def predict_url_ml(url: str) -> dict:
         "recommendation": recommendation
     }
 
+def extract_urls_from_text(text: str) -> list:
+    """
+    Mengekstrak seluruh URL dari teks email (baik format raw URL maupun markdown links).
+    """
+    found = re.findall(r'https?://[^\s<>"\')\]]+', str(text))
+    cleaned_urls = []
+    seen = set()
+    for u in found:
+        u = u.rstrip('.,;!?:')
+        if u and u not in seen:
+            seen.add(u)
+            cleaned_urls.append(u)
+    return cleaned_urls[:5]  # Batasi 5 URL pertama untuk menjaga performa inferensi
+
+def audit_embedded_urls(urls: list) -> dict:
+    """
+    Melakukan inspeksi mendalam terhadap seluruh URL yang disematkan dalam email:
+    1. Klasifikasi model XGBoost (Tier-1)
+    2. Live Web Content Inspection (HTTP status, title, brand spoofing)
+    """
+    if not urls:
+        return {
+            "total_links": 0,
+            "has_phishing_link": False,
+            "phishing_count": 0,
+            "safe_count": 0,
+            "links": [],
+            "threat_summary": "Tidak ditemukan tautan tersemat di dalam badan pesan."
+        }
+
+    links_data = []
+    phishing_links = []
+    safe_links = []
+
+    for u in urls:
+        try:
+            u_res = predict_url_ml(u)
+            link_item = {
+                "url": u,
+                "prediction": u_res["prediction"],
+                "confidence": u_res["confidence"],
+                "root_domain": u_res["features"].get("Domain Utama (Root)", u_res.get("live_inspection", {}).get("host")),
+                "subdomain": u_res["features"].get("Subdomain", ""),
+                "page_title": u_res.get("live_inspection", {}).get("page_title", "Tidak dapat diambil"),
+                "http_status": u_res.get("live_inspection", {}).get("http_status", "Belum terhubung"),
+                "brand_spoofing": u_res.get("live_inspection", {}).get("brand_spoofing_detected", False),
+                "brand_spoofed_name": u_res.get("live_inspection", {}).get("brand_spoofed_name"),
+                "waf_phishing_block": u_res.get("live_inspection", {}).get("waf_phishing_block", False)
+            }
+            links_data.append(link_item)
+            if u_res["prediction"] == "phishing":
+                phishing_links.append(link_item)
+            else:
+                safe_links.append(link_item)
+        except Exception as e:
+            links_data.append({
+                "url": u,
+                "prediction": "inconclusive",
+                "confidence": 50.0,
+                "root_domain": "Gagal diurai",
+                "page_title": f"Error: {type(e).__name__}",
+                "http_status": "Gagal",
+                "brand_spoofing": False
+            })
+
+    has_phish = len(phishing_links) > 0
+    if has_phish:
+        summary = f"BAHAYA KRITIS: Ditemukan {len(phishing_links)} dari {len(urls)} tautan terindikasi phishing ({phishing_links[0]['root_domain']})."
+    else:
+        summary = f"Seluruh tautan yang disematkan ({len(urls)} tautan) terverifikasi memiliki reputasi normal / sah."
+
+    return {
+        "total_links": len(urls),
+        "has_phishing_link": has_phish,
+        "phishing_count": len(phishing_links),
+        "safe_count": len(safe_links),
+        "links": links_data,
+        "threat_summary": summary
+    }
+
 def predict_email_ml(text: str) -> dict:
     model, vectorizer, model_name = load_email_models()
     cleaned = clean_email_text(text)
@@ -413,42 +493,86 @@ def predict_email_ml(text: str) -> dict:
     prob_phish = float(prob_matrix[1])
     prob_safe = float(prob_matrix[0])
     
-    urgency_terms = [
-        # English
-        "urgent", "account", "suspended", "password", "security", "verify", "update", "bank", "immediately", "action", "expire", "access", "invoice", "confirm", "reward", "winner", "prize",
-        # Indonesian
-        "segera", "akun", "diblokir", "ditutup", "sandi", "keamanan", "verifikasi", "perbarui", "bank", "tindakan", "kedaluwarsa", "akses", "saldo", "rekening", "otp", "tagihan", "pajak", "paket", "kurir", "unduh", "apk", "klik", "klaim", "hadiah", "undian", "tilang", "etle", "bca", "brimo", "livin", "dana", "shopee"
+    # Indikator pemicu ancaman & paksaan psikologis rekayasa sosial
+    threat_triggers = [
+        # Pemaksaan & Ancaman Penutupan Akun / Blokir
+        "diblokir", "ditutup", "pembekuan", "penangguhan", "suspension", "suspended", "deactivate", "deactivated",
+        "terminate", "terminated", "restricted",
+        # Batas Waktu Mendesak (Urgency Pressure)
+        "1x24 jam", "24 jam", "48 jam", "72 jam", "72 hours", "24 hours", "48 hours",
+        "immediately", "urgent", "kedaluwarsa", "expired", "deadline",
+        # Sanksi / Finansial / Jebakan APK
+        "denda", "tilang", "disita", "saldo terpotong", "menang undian", "klaim hadiah", "dana kaget", "unduh apk", "install apk",
+        # Ajakan Verifikasi Kredensial Mendesak
+        "validate now", "verify now", "confirm now", "masukkan pin", "isi password", "kode otp"
     ]
-    detected_terms = [w for w in urgency_terms if w in cleaned.split()]
+    
+    text_lower = text.lower()
+    detected_triggers = [kw for kw in threat_triggers if kw in text_lower]
 
-    # Mitigasi Zero-Vector Intercept Bias pada model SVM sparse
-    if len(cleaned.split()) <= 4 and not detected_terms:
-        prob_phish = 0.10
-        prob_safe = 0.90
-    elif detected_terms and prob_phish < 0.60:
-        prob_phish = max(prob_phish, 0.75)
-        prob_safe = 1.0 - prob_phish
+    # Hitung kerapatan fitur yang cocok dalam kamus TF-IDF (Matching Density)
+    # Untuk mengatasi Sparse Vector Intercept Bias pada teks non-Inggris
+    matched_features = len(vec_input.nonzero()[1])
+    total_words = len(cleaned.split())
 
-    threshold = get_threshold()
-    is_phish = prob_phish >= threshold
-    prediction = "phishing" if is_phish else "legitimate"
-    confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
+    # Jika tidak ada pemicu ancaman (threat_triggers) sama sekali:
+    if not detected_triggers:
+        # Teks informatif, pengumuman kebijakan resmi, atau teks dengan OOV tinggi
+        # Netralkan bias intercept positif LinearSVM
+        if prob_phish > 0.50:
+            prob_phish = 0.08
+            prob_safe = 0.92
+    else:
+        # Jika terdeteksi pemicu ancaman/pemblokiran/batas waktu mendesak nyata
+        if prob_phish < 0.65:
+            prob_phish = max(prob_phish, 0.85)
+            prob_safe = 1.0 - prob_phish
+
+    # Audit Tautan Tersemat di dalam Email (Deep Link Extraction & Multi-Stage Inspection)
+    extracted_urls = extract_urls_from_text(text)
+    links_audit = audit_embedded_urls(extracted_urls)
+
+    # Eskalasi Otomatis jika Tautan di dalam Email adalah Phishing
+    if links_audit["has_phishing_link"]:
+        prob_phish = 0.985
+        prob_safe = 0.015
+        is_phish = True
+        prediction = "phishing"
+        confidence = 98.5
+    else:
+        threshold = get_threshold()
+        is_phish = prob_phish >= threshold
+        prediction = "phishing" if is_phish else "legitimate"
+        confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
 
     features_display = {
-        "Panjang Teks": f"{len(text)} karakter ({len(text.split())} kata)",
-        "Pola Kata Kunci Kritis": ", ".join(detected_terms[:5]) if detected_terms else "Tidak ada kata mencurigakan",
-        "Indikasi Urgensi Psikologis": "Tinggi (Mendesak / Mengancam)" if len(detected_terms) >= 2 else ("Sedang" if detected_terms else "Normal"),
-        "Karakteristik Teks": "Mengandung Istilah Rekayasa Sosial" if is_phish else "Bahasa Komunikasi Wajar"
+        "Panjang Teks": f"{len(text)} karakter ({total_words} kata)",
+        "Pola Ancaman & Urgensi": ", ".join(detected_triggers[:5]) if detected_triggers else "Tidak ada indikasi ancaman / paksaan",
+        "Indikasi Urgensi Psikologis": "Tinggi (Mendesak / Mengancam)" if len(detected_triggers) >= 2 or links_audit["has_phishing_link"] else ("Sedang" if detected_triggers else "Rendah (Informatif / Wajar)"),
+        "Karakteristik Teks": "Mengandung Indikator Rekayasa Sosial" if is_phish else "Pemberitahuan Wajar / Komunikasi Normal"
     }
 
+    if links_audit["total_links"] > 0:
+        if links_audit["has_phishing_link"]:
+            features_display["Audit Tautan Tersemat"] = f"BAHAYA: {links_audit['threat_summary']}"
+        else:
+            features_display["Audit Tautan Tersemat"] = f"Aman: {links_audit['total_links']} tautan terverifikasi normal"
+
     if is_phish:
-        recommendation = (
-            "Pesan ini mengandung unsur manipulasi psikologis khas phishing / rekayasa sosial. "
-            "Jangan mengklik tautan apa pun dan jangan mengunduh file lampiran dari pesan ini."
-        )
+        if links_audit["has_phishing_link"]:
+            recommendation = (
+                f"PERINGATAN TINGKAT TINGGI: Pesan ini menyematkan tautan berbahaya ({links_audit['links'][0]['url']}). "
+                "Meskipun narasi pesan tampak meyakinkan, keberadaan tautan phishing di dalamnya mengonfirmasi ini adalah serangan penipuan siber."
+            )
+        else:
+            recommendation = (
+                "Pesan ini mengandung unsur manipulasi psikologis khas phishing / rekayasa sosial. "
+                "Jangan mengklik tautan apa pun dan jangan mengunduh file lampiran dari pesan ini."
+            )
     else:
         recommendation = (
-            "Pesan ini tidak menunjukkan indikasi penipuan atau ancaman phishing yang mencurigakan."
+            "Pesan ini tidak menunjukkan indikasi pemaksaan atau ancaman phishing yang mencurigakan. "
+            "Karakteristik pesan konsisten dengan komunikasi atau pemberitahuan resmi."
         )
 
     return {
@@ -459,6 +583,7 @@ def predict_email_ml(text: str) -> dict:
         "prob_phish": round(prob_phish, 4),
         "model_name": model_name,
         "features": features_display,
+        "embedded_links_audit": links_audit,
         "recommendation": recommendation
     }
 
@@ -494,8 +619,10 @@ PEDOMAN ANALISIS KEAMANAN SIBER RESMI (WAJIB DIIKUTI):
 5. DOMAIN INSTITUSI RESMI (.ac.id, .go.id, .edu, .gov):
    - Domain yang berakhiran institusional seperti .ac.id (kampus di Indonesia seperti unsil.ac.id = Universitas Siliwangi), .go.id (pemerintah), atau .edu adalah domain terverifikasi resmi oleh PANDI / kementerian.
    - Jika target adalah domain institusi resmi dan tidak ada indikasi pembajakan / blokir WAF / peringatan keamanan, tetapkan second_verdict: 'legitimate'!
+6. PEMBERITAHUAN KEBIJAKAN / INFORMASI RESMI (TERMS OF SERVICE):
+   - Pesan atau email pengumuman pembaruan Persyaratan Layanan (Terms of Service), kebijakan privasi, atau notifikasi sistem (misal dari Google Play, Microsoft, Apple, dll) yang bersifat informatif dan TIDAK memuat ancaman pemblokiran mendesak (misal tertulis: 'perubahan ini tidak akan memengaruhi cara Anda menggunakan layanan') adalah 100% sah/resmi (LEGITIMATE), BUKAN phishing!
 
-Target ({input_type.upper()}): {input_data}
+Target ({input_type.upper()}): {input_data[:1200] if len(input_data) > 1200 else input_data}
 Bukti Fitur Teknis & Live Web Inspection: {json.dumps(evidence_bundle, ensure_ascii=False)}
 
 Balas HANYA dalam format JSON valid tanpa teks tambahan:
@@ -514,6 +641,7 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
     indicators = []
     soc_eng = {}
     is_live_ollama = False
+    ollama_error_detail = None
 
     try:
         headers = {
@@ -545,8 +673,12 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
                 "potential_objective": parsed.get("potential_objective", "Tidak teridentifikasi")
             }
             is_live_ollama = True
-    except Exception:
-        pass
+        else:
+            ollama_error_detail = f"Server Ollama merespons status HTTP {res.status_code}"
+    except requests.exceptions.Timeout:
+        ollama_error_detail = "Koneksi timeout (>35 detik) - Tunneling ngrok berlatensi tinggi atau server Ollama sibuk"
+    except Exception as e:
+        ollama_error_detail = f"Koneksi terputus: {type(e).__name__} ({str(e)})"
 
     # Logika Pengamanan / Fallback Cerdas & Koreksi Tegas
     # Jika Qwen mencoba meloloskan phishing yang jelas terbukti ada Brand Spoofing atau WAF Block:
@@ -591,40 +723,84 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
             "potential_objective": "Layanan akademik, portal sistem informasi, atau administrasi resmi kampus"
         }
     elif not is_live_ollama or not second_verdict:
-        if ml_pred == "phishing":
-            second_verdict = "phishing"
-            explanation = (
-                f"Pemeriksaan konteks independen mengonfirmasi indikasi ancaman pada {input_type} ini. "
-                f"Ditemukan pola struktur dan bahasa yang lazim dipakai untuk mengelabui pengguna agar menyerahkan data sensitif."
-            )
-            indicators = [
-                "Pola penamaan domain / tautan menyerupai entitas populer",
-                "Unsur manipulasi psikologis / permintaan mendesak",
-                "Indikasi pengumpulan data / akses login tanpa otentikasi resmi"
+        if input_type == "email":
+            threat_triggers = [
+                "diblokir", "ditutup", "pembekuan", "penangguhan", "suspension", "suspended", "restricted",
+                "1x24 jam", "24 jam", "48 jam", "72 jam", "72 hours", "24 hours", "immediately", "urgent",
+                "kedaluwarsa", "saldo terpotong", "unduh apk", "install apk", "validate now", "verify now", "kode otp"
             ]
-            soc_eng = {
-                "urgency_level": "Tinggi",
-                "impersonation": "Entitas Layanan Digital / Perbankan",
-                "credential_harvesting": True,
-                "potential_objective": "Pencurian kredensial akun pengguna & manipulasi verifikasi"
-            }
+            detected = [kw for kw in threat_triggers if kw in input_data.lower()]
+            if ml_pred == "phishing" or detected:
+                second_verdict = "phishing"
+                explanation = (
+                    f"Pemeriksaan konteks independen mengonfirmasi indikasi rekayasa sosial pada email ini. "
+                    f"Ditemukan unsur desakan atau ancaman ({', '.join(detected[:3]) if detected else 'pola mencurigakan'}) "
+                    f"yang lazim dipakai pelaku phishing untuk menekan korban."
+                )
+                indicators = [
+                    f"Indikator desakan / ancaman: {', '.join(detected)}" if detected else "Pola rekayasa sosial manipulatif",
+                    "Tekanan batas waktu darurat untuk memaksa tindakan",
+                    "Indikasi pengelabuan pengguna untuk penyerahan data / akses"
+                ]
+                soc_eng = {
+                    "urgency_level": "Tinggi",
+                    "impersonation": "Entitas Layanan Digital / Perbankan",
+                    "credential_harvesting": True,
+                    "potential_objective": "Pencurian kredensial akun pengguna & manipulasi verifikasi"
+                }
+            else:
+                second_verdict = "legitimate"
+                explanation = (
+                    "Pemeriksaan konteks independen mengonfirmasi bahwa pesan ini merupakan pemberitahuan resmi / pembaruan kebijakan yang bersifat informatif. "
+                    "Tidak ditemukan indikasi paksaan psikologis, ancaman pemblokiran akun, maupun upaya pengumpulan kata sandi (credential harvesting)."
+                )
+                indicators = [
+                    "Bahasa komunikasi terstruktur wajar untuk pengumuman resmi",
+                    "Tidak ada unsur pemaksaan waktu atau ancaman penutupan akun",
+                    "Tidak terindikasi pengumpulan kata sandi / data rahasia"
+                ]
+                soc_eng = {
+                    "urgency_level": "Rendah",
+                    "impersonation": "Tidak Terindikasi (Resmi)",
+                    "credential_harvesting": False,
+                    "potential_objective": "Pemberitahuan perubahan layanan / operasional resmi"
+                }
         else:
-            second_verdict = "legitimate"
-            explanation = (
-                f"Pemeriksaan konteks independen tidak menemukan anomali atau pola rekayasa sosial pada {input_type} ini. "
-                f"Karakteristik konten konsisten dengan interaksi digital normal."
-            )
-            indicators = [
-                "Struktur alamat dan identitas domain wajar",
-                "Tidak ada indikasi paksaan atau pengelabuan formulir",
-                "Pola komunikasi standar tanpa tanda social engineering"
-            ]
-            soc_eng = {
-                "urgency_level": "Rendah",
-                "impersonation": "Tidak Terindikasi",
-                "credential_harvesting": False,
-                "potential_objective": "Komunikasi normal / aktivitas web terpercaya"
-            }
+            # Fallback untuk URL
+            if ml_pred == "phishing":
+                second_verdict = "phishing"
+                explanation = (
+                    f"Pemeriksaan konteks independen mengonfirmasi indikasi ancaman pada tautan ini. "
+                    f"Ditemukan pola struktur dan karakteristik yang lazim dipakai untuk mengelabui pengguna agar menyerahkan data sensitif."
+                )
+                indicators = [
+                    "Pola penamaan domain / tautan menyerupai entitas populer",
+                    "Unsur manipulasi psikologis / pengalihan alamat web",
+                    "Indikasi pengumpulan data / akses login tanpa otentikasi resmi"
+                ]
+                soc_eng = {
+                    "urgency_level": "Tinggi",
+                    "impersonation": "Entitas Layanan Digital / Perbankan",
+                    "credential_harvesting": True,
+                    "potential_objective": "Pencurian kredensial akun pengguna & manipulasi verifikasi"
+                }
+            else:
+                second_verdict = "legitimate"
+                explanation = (
+                    f"Pemeriksaan konteks independen tidak menemukan anomali atau pola rekayasa sosial pada tautan ini. "
+                    f"Karakteristik konten konsisten dengan interaksi digital normal."
+                )
+                indicators = [
+                    "Struktur alamat dan identitas domain wajar",
+                    "Tidak ada indikasi paksaan atau pengelabuan formulir",
+                    "Pola komunikasi standar tanpa tanda social engineering"
+                ]
+                soc_eng = {
+                    "urgency_level": "Rendah",
+                    "impersonation": "Tidak Terindikasi",
+                    "credential_harvesting": False,
+                    "potential_objective": "Komunikasi normal / aktivitas web terpercaya"
+                }
 
     # 3. Matriks Rekonsiliasi (Sesuai Bab 10 Dokumen Konsep)
     if second_verdict == "inconclusive":
@@ -645,6 +821,8 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
 
     return {
         "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else "Qwen 2.5 7B (Engine Verifier)",
+        "is_live_ollama": is_live_ollama,
+        "ollama_error_detail": ollama_error_detail,
         "model_name": model_name,
         "second_verdict": second_verdict,
         "status_text": status_text,

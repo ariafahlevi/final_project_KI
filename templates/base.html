@@ -40,9 +40,9 @@
       <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">☰</button>
       <div class="breadcrumb">Workspace <span>/</span> <b>{% block crumb %}Dashboard{% endblock %}</b></div>
       <div class="top-actions">
-        <div style="display:flex;align-items:center;gap:7px;background:#eaf5ee;border:1px solid #c8e7d9;padding:6px 14px;border-radius:20px;font-size:11px;color:#2e6659;font-weight:700;">
-          <span style="width:7px;height:7px;border-radius:50%;background:#438b6c;display:inline-block;box-shadow:0 0 0 2px rgba(67,139,108,0.25);"></span>
-          <span>Dual-Engine Active</span>
+        <div id="topEngineBadge" style="display:flex;align-items:center;gap:7px;background:#eaf5ee;border:1px solid #c8e7d9;padding:6px 14px;border-radius:20px;font-size:11px;color:#2e6659;font-weight:700;transition:all .3s ease;" title="Memeriksa koneksi ke Ollama...">
+          <span id="topEngineDot" style="width:7px;height:7px;border-radius:50%;background:#438b6c;display:inline-block;box-shadow:0 0 0 2px rgba(67,139,108,0.25);"></span>
+          <span id="topEngineText">Dual-Engine Active</span>
         </div>
         <div class="avatar" title="PhisGuard Defensive Engine" style="background:#1b4d3e;color:#fff;font-weight:800;font-size:11px;">PG</div>
       </div>
