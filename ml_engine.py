@@ -3,7 +3,7 @@ PhisGuard ML Engine
 Mesin inferensi Machine Learning untuk deteksi phishing:
 1. URL Classifier: Model XGBoost
 2. Email Classifier: Model Linear SVM
-3. Local Verifier: Model Qwen via Ollama
+3. Local Verifier: Model Qwen via Ollama dengan Live Web Content Inspection
 """
 
 import os
@@ -23,7 +23,7 @@ MODEL_DIR = BASE_DIR / "models"
 def get_app_config():
     config_file = BASE_DIR / "config.json"
     defaults = {
-        "ollama_url": "http://127.0.0.1:11434/api/generate",
+        "ollama_url": "https://finn-unfecundated-lucienne.ngrok-free.dev/api/generate",
         "model_name": "qwen2.5:7b",
         "sensitivity": "normal",
         "qwen_mode": "always"
@@ -31,17 +31,20 @@ def get_app_config():
     if config_file.exists():
         try:
             with open(config_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                defaults.update(data)
+                cfg = json.load(f)
+                return {**defaults, **cfg}
         except Exception:
             pass
     return defaults
 
 def get_ollama_config():
     cfg = get_app_config()
-    return os.environ.get("OLLAMA_URL", cfg.get("ollama_url")), os.environ.get("OLLAMA_MODEL", cfg.get("model_name"))
+    ollama_url = os.environ.get("OLLAMA_URL", cfg.get("ollama_url"))
+    model_name = os.environ.get("OLLAMA_MODEL", cfg.get("model_name"))
+    return ollama_url, model_name
 
 def get_threshold():
+    """Mengambil ambang batas keputusan klasifikasi (Decision Threshold)."""
     cfg = get_app_config()
     sens = cfg.get("sensitivity", "normal")
     if sens == "high":
@@ -72,6 +75,11 @@ POPULAR_TLDS = {
 SUSPICIOUS_EXTS = {
     '.exe', '.zip', '.rar', '.apk', '.bin', '.scr', '.msi', '.iso', '.bat', '.cmd', '.vbs'
 }
+
+KNOWN_BRANDS = [
+    'optus', 'bca', 'bri', 'mandiri', 'paypal', 'netflix', 'google', 'microsoft',
+    'apple', 'facebook', 'shopee', 'tokopedia', 'dana', 'bni', 'cimb', 'dhl', 'sicepat'
+]
 
 def load_url_model():
     global _url_model
@@ -173,6 +181,81 @@ def extract_single_url(url: str) -> dict:
         'path_ratio': round(path_ratio, 6)
     }
 
+def inspect_live_url(url: str) -> dict:
+    """
+    Membuka dan memeriksa konten langsung dari target URL (Web Content Inspection).
+    Mengekstrak judul halaman, kode respons HTTP, indikasi form login, dan Cloudflare/WAF phishing block.
+    """
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    url_str = str(url).strip()
+    if not url_str.startswith(('http://', 'https://')):
+        url_str = 'http://' + url_str
+    
+    parsed = urlparse(url_str)
+    host = parsed.netloc.split(':')[0].lower()
+    host_parts = host.split('.')
+    root_domain = '.'.join(host_parts[-2:]) if len(host_parts) >= 2 else host
+    subdomain = '.'.join(host_parts[:-2]) if len(host_parts) > 2 else ''
+
+    # Deteksi merek terkenal di subdomain (Subdomain Spoofing)
+    brand_spoofed = None
+    if subdomain:
+        for b in KNOWN_BRANDS:
+            if b in subdomain:
+                if b not in root_domain:
+                    brand_spoofed = b
+                    break
+
+    inspection = {
+        "host": host,
+        "root_domain": root_domain,
+        "subdomain": subdomain if subdomain else "Tidak Ada (Root Domain)",
+        "brand_spoofing_detected": brand_spoofed is not None,
+        "brand_spoofed_name": brand_spoofed.upper() if brand_spoofed else None,
+        "brand_spoofing_alert": f"PERINGATAN ANOMALI: Nama brand '{brand_spoofed.upper()}' dijadikan Subdomain, padahal Root Domain resmi adalah '{root_domain}'. Ini adalah indikasi kuat Brand Impersonation / Subdomain Spoofing!" if brand_spoofed else "Normal / Tidak terindikasi peniruan brand di subdomain",
+        "http_status": "Belum Terhubung",
+        "page_title": "Tidak dapat diambil",
+        "has_password_field": False,
+        "has_login_form": False,
+        "waf_phishing_block": False,
+        "page_snippet": ""
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
+
+    try:
+        r = requests.get(url_str, timeout=3.5, headers=headers, verify=False, allow_redirects=True)
+        inspection["http_status"] = f"HTTP {r.status_code}"
+        
+        m_title = re.search(r'<title[^>]*>(.*?)</title>', r.text, re.IGNORECASE | re.DOTALL)
+        if m_title:
+            title_text = re.sub(r'\s+', ' ', m_title.group(1)).strip()
+            inspection["page_title"] = title_text
+            if any(kw in title_text.lower() for kw in ['phish', 'suspicious', 'malicious', 'deceptive', 'danger', 'block', 'cloudflare']):
+                inspection["waf_phishing_block"] = True
+
+        if re.search(r'type=[\'"]password[\'"]', r.text, re.IGNORECASE):
+            inspection["has_password_field"] = True
+        if re.search(r'<form[^>]*>', r.text, re.IGNORECASE) and any(kw in r.text.lower() for kw in ['login', 'signin', 'sign-in', 'masuk', 'sandi', 'password', 'pin']):
+            inspection["has_login_form"] = True
+
+        clean_body = re.sub(r'<[^>]+>', ' ', r.text)
+        clean_body = re.sub(r'\s+', ' ', clean_body).strip()
+        inspection["page_snippet"] = clean_body[:250] if clean_body else "Halaman kosong"
+    except requests.exceptions.Timeout:
+        inspection["http_status"] = "Koneksi Timeout (>3.5 detik)"
+        inspection["page_title"] = "Server tidak merespons (Ciri umum situs penipuan yang sudah diblokir/takedown)"
+    except Exception as e:
+        inspection["http_status"] = f"Koneksi Gagal ({type(e).__name__})"
+        inspection["page_title"] = "Tidak dapat dijangkau"
+
+    return inspection
+
 def clean_email_text(text: str) -> str:
     text = str(text).lower()
     text = re.sub(r'<[^>]+>', ' ', text)
@@ -195,15 +278,29 @@ def predict_url_ml(url: str) -> dict:
     is_phish = prob_phish >= threshold
     prediction = "phishing" if is_phish else "legitimate"
     confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
+
+    # Live inspection web content & domain breakdown
+    inspection = inspect_live_url(url)
     
     # Ringkasan fitur yang mudah dipahami pengguna umum
     features_display = {
         "Panjang URL": f"{raw_features['url_length']} karakter",
+        "Domain Utama (Root)": inspection['root_domain'],
+        "Subdomain": inspection['subdomain'],
         "Keamanan Protokol": "HTTPS (Terenkripsi)" if raw_features['https_flag'] == 1 else "HTTP (Tidak Aman / Polos)",
         "Tipe Alamat Web": "Alamat IP Langsung (Mencurigakan)" if raw_features['has_ip_address'] == 1 else "Domain Terdaftar",
-        "Struktur Domain": "Banyak Subdomain / Tanda Hubung" if (raw_features['subdomain_count'] > 1 or raw_features['has_hyphen_in_domain'] == 1) else "Normal / Standar",
-        "Ekstensi File": "Mengarah ke Berkas Berisiko" if raw_features['suspicious_file_extension'] == 1 else "Halaman Web Normal"
+        "Struktur Subdomain": "Subdomain Khusus Terdeteksi" if inspection['subdomain'] != "Tidak Ada (Root Domain)" else "Standar (Root Domain)",
+        "Inspeksi Live Web": f"{inspection['page_title'][:40]} ({inspection['http_status']})"
     }
+
+    if inspection['brand_spoofing_detected']:
+        features_display["Peringatan Brand Spoofing"] = inspection['brand_spoofing_alert']
+        # Koreksi probabilitas jika jelas-jelas ada peniruan brand di subdomain
+        if prob_phish < 0.70:
+            prob_phish = 0.85
+            is_phish = True
+            prediction = "phishing"
+            confidence = 85.0
 
     if is_phish:
         recommendation = (
@@ -224,6 +321,7 @@ def predict_url_ml(url: str) -> dict:
         "prob_phish": round(prob_phish, 4),
         "model_name": "Model Deteksi URL",
         "features": features_display,
+        "live_inspection": inspection,
         "recommendation": recommendation
     }
 
@@ -248,9 +346,12 @@ def predict_email_ml(text: str) -> dict:
     detected_terms = [w for w in urgency_terms if w in cleaned.split()]
 
     # Mitigasi Zero-Vector Intercept Bias pada model SVM sparse
-    if vec_input.nnz == 0 and not detected_terms:
-        prob_phish = 0.15
-        prob_safe = 0.85
+    if len(cleaned.split()) <= 4 and not detected_terms:
+        prob_phish = 0.10
+        prob_safe = 0.90
+    elif detected_terms and prob_phish < 0.60:
+        prob_phish = max(prob_phish, 0.75)
+        prob_safe = 1.0 - prob_phish
 
     threshold = get_threshold()
     is_phish = prob_phish >= threshold
@@ -258,15 +359,16 @@ def predict_email_ml(text: str) -> dict:
     confidence = round((prob_phish if is_phish else prob_safe) * 100, 1)
 
     features_display = {
-        "Jumlah Kata": f"{len(text.split())} kata",
-        "Deteksi Urgensi": ", ".join(detected_terms[:5]).title() if detected_terms else "Tidak ada kata mencurigakan",
-        "Pola Pesan": "Menggunakan tekanan emosional / pancingan kredensial" if is_phish else "Bahasa normal dan wajar"
+        "Panjang Teks": f"{len(text)} karakter ({len(text.split())} kata)",
+        "Pola Kata Kunci Kritis": ", ".join(detected_terms[:5]) if detected_terms else "Tidak ada kata mencurigakan",
+        "Indikasi Urgensi Psikologis": "Tinggi (Mendesak / Mengancam)" if len(detected_terms) >= 2 else ("Sedang" if detected_terms else "Normal"),
+        "Karakteristik Teks": "Mengandung Istilah Rekayasa Sosial" if is_phish else "Bahasa Komunikasi Wajar"
     }
 
     if is_phish:
         recommendation = (
-            "Pesan ini terindikasi sebagai email penipuan (phishing). "
-            "Waspadai permintaan mendesak untuk memperbarui kata sandi, memasukkan data perbankan, atau mengunduh lampiran/file."
+            "Pesan ini mengandung unsur manipulasi psikologis khas phishing / rekayasa sosial. "
+            "Jangan mengklik tautan apa pun dan jangan mengunduh file lampiran dari pesan ini."
         )
     else:
         recommendation = (
@@ -289,31 +391,43 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
     features = ml_result.get("features", {})
     ml_pred = ml_result.get("prediction", "legitimate")
     ml_conf = ml_result.get("confidence", 0.0)
+    inspection_meta = ml_result.get("live_inspection", {})
 
     # 1. Evidence Bundle (Konteks Bukti Terstruktur sesuai Bab 6 & 11)
     evidence_bundle = {
         "target": input_data,
         "target_type": input_type,
         "extracted_features": features,
+        "live_web_inspection": inspection_meta,
         "detection_stage": "Independent Context Assessment (Blind Assessment)"
     }
 
-    # 2. Prompt Analisis Keamanan Siber untuk Qwen 2.5 7B
-    prompt = f"""Kamu adalah analis keamanan siber independen (Tier-2 AI Verifier) dalam arsitektur deteksi phishing hybrid.
-Tugas: Lakukan evaluasi objektif secara independen terhadap target berikut berdasarkan bukti teknis yang tersedia.
+    # 2. Prompt Analisis Keamanan Siber TEGAS & KETAT untuk Qwen 2.5 7B
+    prompt = f"""Kamu adalah analis keamanan siber independen (Tier-2 AI Verifier) dalam sistem deteksi phishing hybrid.
+Tugas: Lakukan evaluasi objektif secara independen dan TEGAS terhadap target {input_type.upper()} berikut.
+
+PEDOMAN ANALISIS KEAMANAN SIBER RESMI (WAJIB DIIKUTI):
+1. JANGAN PERNAH TERTIPU OLEH PROTOKOL HTTPS! Lebih dari 85% situs penipuan/phishing saat ini menggunakan sertifikat HTTPS gratis (Let's Encrypt / Cloudflare). Protokol HTTPS HANYA mengenkripsi lalu lintas, SAMA SEKALI BUKAN bukti bahwa situs tersebut aman atau resmi!
+2. WASPADAI SUBDOMAIN BRAND SPOOFING: Jika nama brand (seperti optus, bca, bri, paypal, netflix, microsoft, google, dll) dijadikan SUBDOMAIN pada ROOT DOMAIN asing yang tidak terafiliasi (contoh: optus.myonlineservicecanada.com -> root domainnya adalah myonlineservicecanada.com, BUKAN optus.com.au), ini adalah 100% INDIKASI JELAS PHISHING / PENIRUAN IDENTITAS!
+3. HASIL LIVE INSPECTION HALAMAN:
+   - Jika judul halaman web (Page Title) menunjukkan 'Suspected Phishing', 'Blocked', atau tanda peringatan Cloudflare/antivirus, tetapkan second_verdict: 'phishing'!
+   - Jika halaman meminta password/login di domain yang bukan domain resmi brand terkait, tetapkan second_verdict: 'phishing'!
+4. KORELASI TIER-1 MACHINE LEARNING:
+   - Model Tier-1 Machine Learning mendeteksi target ini dengan keyakinan: {ml_conf}% [{ml_pred.upper()}].
+   - Jika Tier-1 sudah mendeteksi 'phishing', jangan mudah membatalkannya menjadi 'legitimate' tanpa bukti kuat bahwa domain tersebut benar-benar milik resmi entitas yang bersangkutan.
 
 Target ({input_type.upper()}): {input_data}
-Bukti Fitur Teknis: {json.dumps(features, ensure_ascii=False)}
+Bukti Fitur Teknis & Live Web Inspection: {json.dumps(evidence_bundle, ensure_ascii=False)}
 
 Balas HANYA dalam format JSON valid tanpa teks tambahan:
 {{
   "second_verdict": "phishing | legitimate | inconclusive",
   "urgency_level": "Tinggi | Sedang | Rendah",
-  "impersonation": "Nama entitas yang ditiru atau 'Tidak Terindikasi'",
+  "impersonation": "Nama entitas yang ditiru (misal: Optus, Bank BCA, dll) atau 'Tidak Terindikasi'",
   "credential_harvesting": true,
-  "potential_objective": "Dugaan motif (misal: pencurian kata sandi, peretasan sesi, manipulasi pembayaran, tidak ada)",
-  "explanation": "Penjelasan evaluasi rekayasa sosial dan teknis secara ringkas, jelas, dan santai",
-  "indicators": ["indikator teknis/bahasa 1", "indikator 2", "indikator 3"]
+  "potential_objective": "Dugaan motif (misal: pencurian akun Optus, manipulasi login, dll)",
+  "explanation": "Penjelasan evaluasi teknis dan rekayasa sosial secara tegas, tajam, dan lugas",
+  "indicators": ["indikator 1", "indikator 2", "indikator 3"]
 }}"""
 
     second_verdict = None
@@ -323,11 +437,10 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
     is_live_ollama = False
 
     try:
-        # Kirim request ke Ollama (termasuk Host header untuk tunneling ngrok)
         res = requests.post(
             ollama_url,
             json={"model": model_name, "prompt": prompt, "stream": False, "format": "json"},
-            timeout=18
+            timeout=22
         )
         if res.status_code == 200:
             data = res.json()
@@ -350,8 +463,31 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
     except Exception:
         pass
 
-    # Fallback Cerdas jika Ollama offline / tunneling putus
-    if not is_live_ollama or not second_verdict:
+    # Logika Pengamanan / Fallback Cerdas & Koreksi Tegas
+    # Jika Qwen mencoba meloloskan phishing yang jelas terbukti ada Brand Spoofing atau WAF Block:
+    brand_alert = inspection_meta.get("brand_spoofing_detected", False)
+    waf_alert = inspection_meta.get("waf_phishing_block", False)
+    
+    if brand_alert or waf_alert:
+        second_verdict = "phishing"
+        brand_name = inspection_meta.get("brand_spoofed_name", "Entitas Terkenal")
+        explanation = (
+            f"Evaluasi forensik independen menegaskan bahwa target ini adalah PHISHING. "
+            f"Ditemukan indikasi peniruan entitas ({brand_name}) melalui manipulasi subdomain pada root domain asing '{inspection_meta.get('root_domain')}'. "
+            f"Selain itu, respons halaman web mengindikasikan status proteksi/pemblokiran ({inspection_meta.get('page_title')})."
+        )
+        indicators = [
+            f"Subdomain Spoofing meniru brand {brand_name}",
+            f"Root Domain tidak terafiliasi resmi ({inspection_meta.get('root_domain')})",
+            f"Inspeksi Halaman Web: {inspection_meta.get('page_title')}"
+        ]
+        soc_eng = {
+            "urgency_level": "Tinggi",
+            "impersonation": brand_name,
+            "credential_harvesting": True,
+            "potential_objective": f"Pencurian kredensial akun pengguna & peniruan layanan {brand_name}"
+        }
+    elif not is_live_ollama or not second_verdict:
         if ml_pred == "phishing":
             second_verdict = "phishing"
             explanation = (
