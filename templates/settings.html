@@ -10,7 +10,7 @@
 
 {% if saved %}
 <div style="background:#eaf5ee;color:#2e6659;padding:12px 16px;border-radius:10px;font-size:12.5px;font-weight:700;margin-bottom:18px;border:1px solid #c8e7d9;display:flex;align-items:center;gap:8px;">
-  <span>✓</span> Konfigurasi sistem berhasil disimpan dan langsung diterapkan ke mesin inferensi!
+  <span style="display:inline-flex;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span> Konfigurasi sistem berhasil disimpan dan langsung diterapkan ke mesin inferensi!
 </div>
 {% endif %}
 
@@ -42,7 +42,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
           <b style="font-size:12px;color:#183b32;">Diagnostik Jalur Tunneling:</b>
           <button type="button" id="btnTestOllama" class="btn" style="background:#1b4d3e;color:#fff;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;">
-            ⚡ Uji Koneksi Ollama
+            Uji Koneksi Ollama
           </button>
         </div>
 
@@ -134,26 +134,26 @@ document.addEventListener("DOMContentLoaded", () => {
           resultBox.style.background = "#eaf5ee";
           resultBox.style.border = "1px solid #5c9f88";
           resultBox.style.color = "#183b32";
-          resultBox.innerHTML = `<b>✓ KONEKSI AKTIF (${data.latency_ms} ms)</b><br>${data.message}`;
+          resultBox.innerHTML = `<b>[AKTIF] KONEKSI TERSAMBUNG (${data.latency_ms} ms)</b><br>${data.message}`;
         } else if (res.status === 403) {
           resultBox.style.background = "#fff8f0";
           resultBox.style.border = "1px solid #f0b27a";
           resultBox.style.color = "#a04000";
-          resultBox.innerHTML = `<b>⚠️ STATUS 403 FORBIDDEN</b><br>${data.message}`;
+          resultBox.innerHTML = `<b>[PERINGATAN] STATUS 403 FORBIDDEN</b><br>${data.message}`;
         } else {
           resultBox.style.background = "#feebee";
           resultBox.style.border = "1px solid #f3c2c7";
           resultBox.style.color = "#b33946";
-          resultBox.innerHTML = `<b>✕ KONEKSI GAGAL (${res.status})</b><br>${data.message}`;
+          resultBox.innerHTML = `<b>[GAGAL] KONEKSI GAGAL (${res.status})</b><br>${data.message}`;
         }
       } catch (err) {
         resultBox.style.background = "#feebee";
         resultBox.style.border = "1px solid #f3c2c7";
         resultBox.style.color = "#b33946";
-        resultBox.innerHTML = `<b>✕ GAGAL TERHUBUNG</b><br>${err.message}`;
+        resultBox.innerHTML = `<b>[ERROR] GAGAL TERHUBUNG</b><br>${err.message}`;
       } finally {
         btnTest.disabled = false;
-        btnTest.textContent = "⚡ Uji Koneksi Ollama";
+        btnTest.textContent = "Uji Koneksi Ollama";
       }
     });
   }

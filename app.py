@@ -12,6 +12,13 @@ import pdf_report
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "phisguard-security-key-2026")
 
+# Pre-warm ML models at startup to prevent cold-start latency & avoid Gateway Timeout
+try:
+    ml_engine.load_url_model()
+    ml_engine.load_email_models()
+except Exception as _init_err:
+    print(f"[BOOT] Notice: Pre-warming models deferred: {_init_err}")
+
 BASE_DIR = Path(__file__).resolve().parent
 HISTORY_FILE = BASE_DIR / "history_store.json"
 

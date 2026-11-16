@@ -10,9 +10,7 @@
   </div>
   <div class="hero-emblem">
     <div class="hero-orbit"></div>
-    <div class="hero-shield">✓</div>
-    <span class="spark s1">✦</span>
-    <span class="spark s2">✧</span>
+    <div class="hero-shield" style="display:grid;place-items:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
   </div>
 </div>
 
@@ -45,7 +43,7 @@
   </article>
 
   <article class="stat-card">
-    <div class="stat-icon sage">✓</div>
+    <div class="stat-icon sage" style="display:grid;place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
     <div>
       <p>Terindikasi Aman</p>
       <strong>{{ stats.safe_count }}</strong>
@@ -90,7 +88,7 @@
     </div>
 
     <div class="notice" style="margin-top:24px;">
-      <span>🛡️</span>
+      <span style="display:inline-flex;align-items:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
       <p>Sistem menerapkan pertahanan lapis ganda: model Machine Learning (XGBoost/SVM) untuk kecepatan dan Qwen 2.5 7B untuk analisis rekayasa sosial.</p>
     </div>
   </article>
@@ -117,7 +115,7 @@
       </div>
     </div>
     <div class="notice">
-      <span>✦</span>
+      <span style="font-weight:700;font-size:11px;">NOTE</span>
       <p>Keputusan diverifikasi secara independen oleh Qwen 2.5 7B untuk mencegah *false negative*.</p>
     </div>
   </article>
@@ -174,7 +172,7 @@
                 Detail
               </a>
               <a href="{{ url_for('download_pdf_report_by_id', aid=item.analysis_id) }}" class="btn" style="padding:4px 8px;font-size:10px;background:#1b4d3e;color:#fff;border-radius:6px;text-decoration:none;">
-                📥 PDF
+                PDF
               </a>
             </div>
           </td>

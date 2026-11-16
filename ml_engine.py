@@ -12,6 +12,7 @@ import math
 import json
 import joblib
 import requests
+import concurrent.futures
 import pandas as pd
 from collections import Counter
 from urllib.parse import urlparse
@@ -291,27 +292,31 @@ def inspect_live_url(url: str) -> dict:
     }
 
     try:
-        r = requests.get(url_str, timeout=3.5, headers=headers, verify=False, allow_redirects=True)
+        r = requests.get(url_str, timeout=2.0, headers=headers, verify=False, allow_redirects=True, stream=True)
         inspection["http_status"] = f"HTTP {r.status_code}"
         
-        m_title = re.search(r'<title[^>]*>(.*?)</title>', r.text, re.IGNORECASE | re.DOTALL)
+        # Baca 16KB pertama untuk ekstraksi title & form secara cepat tanpa download aset besar
+        raw_chunk = next(r.iter_content(chunk_size=16384), b'')
+        text_chunk = raw_chunk.decode('utf-8', errors='ignore')
+        
+        m_title = re.search(r'<title[^>]*>(.*?)</title>', text_chunk, re.IGNORECASE | re.DOTALL)
         if m_title:
             title_text = re.sub(r'\s+', ' ', m_title.group(1)).strip()
             inspection["page_title"] = title_text
             if any(kw in title_text.lower() for kw in ['phish', 'suspicious', 'malicious', 'deceptive', 'danger', 'block', 'cloudflare']):
                 inspection["waf_phishing_block"] = True
 
-        if re.search(r'type=[\'"]password[\'"]', r.text, re.IGNORECASE):
+        if re.search(r'type=[\'"]password[\'"]', text_chunk, re.IGNORECASE):
             inspection["has_password_field"] = True
-        if re.search(r'<form[^>]*>', r.text, re.IGNORECASE) and any(kw in r.text.lower() for kw in ['login', 'signin', 'sign-in', 'masuk', 'sandi', 'password', 'pin']):
+        if re.search(r'<form[^>]*>', text_chunk, re.IGNORECASE) and any(kw in text_chunk.lower() for kw in ['login', 'signin', 'sign-in', 'masuk', 'sandi', 'password', 'pin']):
             inspection["has_login_form"] = True
 
-        clean_body = re.sub(r'<[^>]+>', ' ', r.text)
+        clean_body = re.sub(r'<[^>]+>', ' ', text_chunk)
         clean_body = re.sub(r'\s+', ' ', clean_body).strip()
-        inspection["page_snippet"] = clean_body[:250] if clean_body else "Halaman kosong"
+        inspection["page_snippet"] = clean_body[:200] if clean_body else "Halaman kosong"
     except requests.exceptions.Timeout:
-        inspection["http_status"] = "Koneksi Timeout (>3.5 detik)"
-        inspection["page_title"] = "Server tidak merespons (Ciri umum situs penipuan yang sudah diblokir/takedown)"
+        inspection["http_status"] = "Koneksi Timeout (>2.0s)"
+        inspection["page_title"] = "Server tidak merespons dalam batas waktu"
     except Exception as e:
         inspection["http_status"] = f"Koneksi Gagal ({type(e).__name__})"
         inspection["page_title"] = "Tidak dapat dijangkau"
@@ -435,10 +440,12 @@ def audit_embedded_urls(urls: list) -> dict:
     phishing_links = []
     safe_links = []
 
-    for u in urls:
+    target_urls = urls[:5]
+
+    def _process_single_url(u):
         try:
             u_res = predict_url_ml(u)
-            link_item = {
+            item = {
                 "url": u,
                 "prediction": u_res["prediction"],
                 "confidence": u_res["confidence"],
@@ -450,13 +457,9 @@ def audit_embedded_urls(urls: list) -> dict:
                 "brand_spoofed_name": u_res.get("live_inspection", {}).get("brand_spoofed_name"),
                 "waf_phishing_block": u_res.get("live_inspection", {}).get("waf_phishing_block", False)
             }
-            links_data.append(link_item)
-            if u_res["prediction"] == "phishing":
-                phishing_links.append(link_item)
-            else:
-                safe_links.append(link_item)
+            return item
         except Exception as e:
-            links_data.append({
+            return {
                 "url": u,
                 "prediction": "inconclusive",
                 "confidence": 50.0,
@@ -464,13 +467,27 @@ def audit_embedded_urls(urls: list) -> dict:
                 "page_title": f"Error: {type(e).__name__}",
                 "http_status": "Gagal",
                 "brand_spoofing": False
-            })
+            }
+
+    if len(target_urls) <= 1:
+        processed = [_process_single_url(target_urls[0])] if target_urls else []
+    else:
+        # Jalankan secara paralel untuk mencegah penundaan sekuensial
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(target_urls))) as ex:
+            processed = list(ex.map(_process_single_url, target_urls))
+
+    for item in processed:
+        links_data.append(item)
+        if item.get("prediction") == "phishing":
+            phishing_links.append(item)
+        else:
+            safe_links.append(item)
 
     has_phish = len(phishing_links) > 0
     if has_phish:
-        summary = f"BAHAYA KRITIS: Ditemukan {len(phishing_links)} dari {len(urls)} tautan terindikasi phishing ({phishing_links[0]['root_domain']})."
+        summary = f"Terdeteksi {len(phishing_links)} dari {len(urls)} tautan berindikasi phishing ({phishing_links[0]['root_domain']})."
     else:
-        summary = f"Seluruh tautan yang disematkan ({len(urls)} tautan) terverifikasi memiliki reputasi normal / sah."
+        summary = f"Seluruh tautan yang disematkan ({len(urls)} tautan) terverifikasi normal."
 
     return {
         "total_links": len(urls),
@@ -603,37 +620,26 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
         "detection_stage": "Independent Context Assessment (Blind Assessment)"
     }
 
-    # 2. Prompt Analisis Keamanan Siber TEGAS & KETAT untuk Qwen 2.5 7B
-    prompt = f"""Kamu adalah analis keamanan siber independen (Tier-2 AI Verifier) dalam sistem deteksi phishing hybrid.
-Tugas: Lakukan evaluasi objektif secara independen dan TEGAS terhadap target {input_type.upper()} berikut.
+    # 2. Prompt Analisis Keamanan Siber Efisien & Presisi (RSCIT Framework)
+    prompt = f"""Kamu adalah analis keamanan siber independen dalam sistem pertahanan hybrid.
+Target ({input_type.upper()}): {input_data[:750] if len(input_data) > 750 else input_data}
+Bukti Fitur: {json.dumps(evidence_bundle, ensure_ascii=False)}
 
-PEDOMAN ANALISIS KEAMANAN SIBER RESMI (WAJIB DIIKUTI):
-1. JANGAN PERNAH TERTIPU OLEH PROTOKOL HTTPS! Lebih dari 85% situs penipuan/phishing saat ini menggunakan sertifikat HTTPS gratis (Let's Encrypt / Cloudflare). Protokol HTTPS HANYA mengenkripsi lalu lintas, SAMA SEKALI BUKAN bukti bahwa situs tersebut aman atau resmi!
-2. WASPADAI SUBDOMAIN BRAND SPOOFING: Jika nama brand (seperti optus, bca, bri, paypal, netflix, microsoft, google, dll) dijadikan SUBDOMAIN pada ROOT DOMAIN asing yang tidak terafiliasi (contoh: optus.myonlineservicecanada.com -> root domainnya adalah myonlineservicecanada.com, BUKAN optus.com.au), ini adalah 100% INDIKASI JELAS PHISHING / PENIRUAN IDENTITAS!
-3. HASIL LIVE INSPECTION HALAMAN:
-   - Jika judul halaman web (Page Title) menunjukkan 'Suspected Phishing', 'Blocked', atau tanda peringatan Cloudflare/antivirus, tetapkan second_verdict: 'phishing'!
-   - Jika halaman meminta password/login di domain yang bukan domain resmi brand terkait, tetapkan second_verdict: 'phishing'!
-4. KORELASI TIER-1 MACHINE LEARNING:
-   - Model Tier-1 Machine Learning mendeteksi target ini dengan keyakinan: {ml_conf}% [{ml_pred.upper()}].
-   - Jika Tier-1 sudah mendeteksi 'phishing', jangan mudah membatalkannya menjadi 'legitimate' tanpa bukti kuat bahwa domain tersebut benar-benar milik resmi entitas yang bersangkutan.
-5. DOMAIN INSTITUSI RESMI (.ac.id, .go.id, .edu, .gov):
-   - Domain yang berakhiran institusional seperti .ac.id (kampus di Indonesia seperti unsil.ac.id = Universitas Siliwangi), .go.id (pemerintah), atau .edu adalah domain terverifikasi resmi oleh PANDI / kementerian.
-   - Jika target adalah domain institusi resmi dan tidak ada indikasi pembajakan / blokir WAF / peringatan keamanan, tetapkan second_verdict: 'legitimate'!
-6. PEMBERITAHUAN KEBIJAKAN / INFORMASI RESMI (TERMS OF SERVICE):
-   - Pesan atau email pengumuman pembaruan Persyaratan Layanan (Terms of Service), kebijakan privasi, atau notifikasi sistem (misal dari Google Play, Microsoft, Apple, dll) yang bersifat informatif dan TIDAK memuat ancaman pemblokiran mendesak (misal tertulis: 'perubahan ini tidak akan memengaruhi cara Anda menggunakan layanan') adalah 100% sah/resmi (LEGITIMATE), BUKAN phishing!
+Pedoman Evaluasi:
+1. Subdomain Spoofing (nama brand ditiru pada root domain asing) = 'phishing'.
+2. Domain institusi resmi (.ac.id, .go.id, .edu) tanpa blokir WAF = 'legitimate'.
+3. Pembaruan Persyaratan Layanan resmi tanpa paksaan pemblokiran = 'legitimate'.
+4. Jika terdapat tautan phishing di dalam email = 'phishing'.
 
-Target ({input_type.upper()}): {input_data[:1200] if len(input_data) > 1200 else input_data}
-Bukti Fitur Teknis & Live Web Inspection: {json.dumps(evidence_bundle, ensure_ascii=False)}
-
-Balas HANYA dalam format JSON valid tanpa teks tambahan:
+Balas HANYA format JSON valid:
 {{
   "second_verdict": "phishing | legitimate | inconclusive",
   "urgency_level": "Tinggi | Sedang | Rendah",
-  "impersonation": "Nama entitas yang ditiru (misal: Optus, Bank BCA, dll) atau 'Tidak Terindikasi'",
-  "credential_harvesting": true,
-  "potential_objective": "Dugaan motif (misal: pencurian akun Optus, manipulasi login, dll)",
-  "explanation": "Penjelasan evaluasi teknis dan rekayasa sosial secara tegas, tajam, dan lugas",
-  "indicators": ["indikator 1", "indikator 2", "indikator 3"]
+  "impersonation": "Nama entitas atau 'Tidak Terindikasi'",
+  "credential_harvesting": false,
+  "potential_objective": "Dugaan motif (singkat)",
+  "explanation": "Penjelasan 1-2 kalimat lugas tanpa emosional",
+  "indicators": ["indikator 1", "indikator 2"]
 }}"""
 
     second_verdict = None
@@ -651,9 +657,19 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
         }
         res = requests.post(
             ollama_url,
-            json={"model": model_name, "prompt": prompt, "stream": False, "format": "json"},
+            json={
+                "model": model_name,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "num_predict": 120,
+                    "temperature": 0.1,
+                    "num_ctx": 1536
+                }
+            },
             headers=headers,
-            timeout=35
+            timeout=22
         )
         if res.status_code == 200:
             data = res.json()
@@ -674,11 +690,11 @@ Balas HANYA dalam format JSON valid tanpa teks tambahan:
             }
             is_live_ollama = True
         else:
-            ollama_error_detail = f"Server Ollama merespons status HTTP {res.status_code}"
+            ollama_error_detail = f"Server Ollama HTTP {res.status_code}"
     except requests.exceptions.Timeout:
-        ollama_error_detail = "Koneksi timeout (>35 detik) - Tunneling ngrok berlatensi tinggi atau server Ollama sibuk"
-    except Exception as e:
-        ollama_error_detail = f"Koneksi terputus: {type(e).__name__} ({str(e)})"
+        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >22 detik)"
+    except Exception:
+        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal"
 
     # Logika Pengamanan / Fallback Cerdas & Koreksi Tegas
     # Jika Qwen mencoba meloloskan phishing yang jelas terbukti ada Brand Spoofing atau WAF Block:

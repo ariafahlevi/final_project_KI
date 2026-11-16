@@ -92,7 +92,7 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     story = []
 
     # 1. Header Laporan Resmi
-    story.append(Paragraph("🛡️ PHISGUARD — LAPORAN INVESTIGASI KEAMANAN", title_style))
+    story.append(Paragraph("PHISGUARD — LAPORAN INVESTIGASI KEAMANAN", title_style))
     story.append(Paragraph("Sistem Verifikasi Phishing Berlapis (Machine Learning + Qwen 2.5 7B Local LLM)", subtitle_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=primary_color, spaceAfter=8))
 

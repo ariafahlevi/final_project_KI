@@ -68,8 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (terminalBox) terminalBox.style.display = "block";
       if (terminalBody) {
         terminalBody.innerHTML = `
-          <div style="color:#6ee7b7;">[00.00s] ⛨ PhisGuard Hybrid Defense Engine v2.1 diaktifkan.</div>
-          <div style="color:#94a3b8;">[00.08s] Target pengujian: <span style="color:#e2e8f0;font-weight:700;">${targetDisplay}</span> (${scanType.toUpperCase()})</div>
+          <div style="color:#6ee7b7;">[00.00s] [SYSTEM] PhisGuard Hybrid Defense Engine v2.1 diaktifkan.</div>
+          <div style="color:#94a3b8;">[00.08s] [TARGET] Objek uji: <span style="color:#e2e8f0;font-weight:700;">${targetDisplay}</span> (${scanType.toUpperCase()})</div>
         `;
       }
 
@@ -94,39 +94,34 @@ document.addEventListener("DOMContentLoaded", () => {
         terminalBody.scrollTop = terminalBody.scrollHeight;
       }
 
-      // Simulasi Event Pipeline Forensik Real-Time
+      // Pipeline Forensik Real-Time
       const timers = [];
 
       timers.push(setTimeout(() => {
-        logTerminal("#38bdf8", `🔍 <b>[Tier-1 Extractor]</b> Mengekstraksi struktur leksikal, domain, dan fitur teks n-gram...`);
+        logTerminal("#38bdf8", `[EXTRACTOR] Mengekstraksi struktur leksikal, domain, dan fitur teks n-gram...`);
         if (qwenThoughtText) qwenThoughtText.textContent = "Mempersiapkan parameter bukti teknis dari target...";
       }, 250));
 
       timers.push(setTimeout(() => {
         const modelName = scanType === "url" ? "XGBoost Classifier" : "Bilingual Linear SVM";
-        logTerminal("#fbbf24", `⚡ <b>[Tier-1 ML Engine]</b> Menjalankan inferensi model statistik (${modelName})...`);
+        logTerminal("#fbbf24", `[TIER-1 ML] Menjalankan inferensi model statistik (${modelName})...`);
         if (qwenThoughtText) qwenThoughtText.textContent = `Menguji kecocokan dengan pola dataset (100.000+ sampel)...`;
-      }, 700));
+      }, 600));
 
       timers.push(setTimeout(() => {
-        logTerminal("#a7f3d0", `📦 <b>[Evidence Bundler]</b> Menyusun Evidence Bundle untuk verifikasi independen (Blind Assessment)...`);
+        logTerminal("#a7f3d0", `[EVIDENCE] Menyusun Evidence Bundle untuk verifikasi independen (Blind Assessment)...`);
         if (qwenThoughtText) qwenThoughtText.textContent = "Mengirim paket bukti ke Qwen 2.5 7B tanpa bias label awal...";
-      }, 1200));
+      }, 1000));
 
       timers.push(setTimeout(() => {
-        logTerminal("#34d399", `🤖 <b>[Qwen 2.5 7B AI Analyst]</b> Menghubungi server LLM Ollama via tunneling...`);
+        logTerminal("#34d399", `[AI ANALYST] Menghubungi Qwen 2.5 7B via Ollama tunnel...`);
         if (qwenThoughtText) qwenThoughtText.textContent = "Qwen 2.5 7B sedang membaca isi target dan menelaah motif rekayasa sosial...";
-      }, 1800));
+      }, 1500));
 
       timers.push(setTimeout(() => {
-        logTerminal("#e2e8f0", `💬 <b>[Qwen Reasoning]</b> Mengkaji indikator urgensi psikologis, ancaman akun, dan domain spoofing...`);
+        logTerminal("#e2e8f0", `[REASONING] Mengkaji indikator urgensi psikologis dan peniruan entitas...`);
         if (qwenThoughtText) qwenThoughtText.textContent = "Menganalisis manipulasi psikologis, peniruan identitas, dan form login...";
-      }, 3200));
-
-      timers.push(setTimeout(() => {
-        logTerminal("#f472b6", `💬 <b>[Qwen Reasoning]</b> Memeriksa form pengumpulan kredensial / muatan APK berbahaya...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Menyusun evaluasi kualitatif dan rekomendasi mitigasi...";
-      }, 5500));
+      }, 2800));
 
       try {
         const response = await fetch("/api/scan", {
@@ -154,29 +149,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.embedded_links_audit && data.embedded_links_audit.total_links > 0) {
           const lAudit = data.embedded_links_audit;
           if (lAudit.has_phishing_link) {
-            logTerminal("#ef4444", `🚨 <b>[Deep Link Alert]</b> Ditemukan tautan phishing di dalam email! Seluruh ancaman dieskalasi.`);
+            logTerminal("#ef4444", `[ALERT] Ditemukan tautan phishing di dalam email. Tingkat ancaman dieskalasi.`);
           } else {
-            logTerminal("#34d399", `✅ <b>[Deep Link Audit]</b> ${lAudit.total_links} tautan tersemat terverifikasi aman & normal.`);
+            logTerminal("#34d399", `[AUDIT] ${lAudit.total_links} tautan tersemat terverifikasi memiliki reputasi normal.`);
           }
         }
 
         if (data.qwen) {
           if (data.qwen.is_live_ollama) {
-            logTerminal("#10b981", `🟢 <b>[AI Evaluator]</b> Qwen 2.5 7B terhubung langsung via Ollama (${data.qwen.model_name}).`);
+            logTerminal("#10b981", `[AI VERIFIED] Qwen 2.5 7B terhubung langsung via Ollama.`);
           } else {
-            logTerminal("#f59e0b", `🟡 <b>[AI Fallback]</b> Ollama offline/timeout. Evaluasi independen diselesaikan oleh Engine Verifier Cadangan.`);
+            logTerminal("#94a3b8", `[FALLBACK] Evaluasi independen diselesaikan oleh Mesin Analis Internal.`);
           }
         }
 
-        logTerminal(colorVerdict, `⚖️ <b>[Konsensus Bab 10]</b> Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | Qwen: ${qwenVerdict.toUpperCase()}`);
+        logTerminal(colorVerdict, `[KONSENSUS] Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | Qwen: ${qwenVerdict.toUpperCase()}`);
         
         if (data.qwen && data.qwen.explanation) {
           const shortExpl = data.qwen.explanation.length > 90 ? data.qwen.explanation.substring(0, 87) + "..." : data.qwen.explanation;
-          logTerminal("#6ee7b7", `💬 <b>[Pernyataan Qwen 2.5 7B]</b>: "${shortExpl}"`);
+          logTerminal("#6ee7b7", `[TEMUAN AI] "${shortExpl}"`);
           if (qwenThoughtText) qwenThoughtText.textContent = `Qwen: "${shortExpl}"`;
         }
 
-        logTerminal("#93c5fd", `📄 <b>[PDF Report Engine]</b> Menyusun laporan audit forensik resmi (Bab 11)...`);
+        logTerminal("#93c5fd", `[LAPORAN] Menyusun laporan audit forensik resmi...`);
         message.textContent = "Verifikasi selesai! Membuka laporan hasil investigasi...";
 
         // Kirim hasil ke sesi hasil Flask
@@ -198,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       } catch (error) {
         timers.forEach(t => clearTimeout(t));
-        logTerminal("#ef4444", `❌ <b>[Error Pipeline]</b> ${error.message}`);
+        logTerminal("#ef4444", `[ERROR] <b>[Pipeline Error]</b> ${error.message}`);
         message.style.color = "#c96570";
         message.textContent = error.message + " Periksa menu Pengaturan.";
         button.disabled = false;

@@ -42,11 +42,11 @@
       <!-- Tombol Aksi Penghapusan (Dua Pilihan Sesuai Permintaan) -->
       <div style="display:flex;gap:8px;align-items:center;">
         <button type="submit" id="btnDeleteSelected" formaction="{{ url_for('delete_selected_history') }}" class="btn" style="background:#fff0f2;color:#b33946;border:1px solid #f3c2c7;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;opacity:0.5;" disabled onclick="return confirm('Hapus item yang dipilih?');">
-          🗑 Hapus Terpilih (<span id="selectCount">0</span>)
+          Hapus Terpilih (<span id="selectCount">0</span>)
         </button>
 
         <button type="submit" formaction="{{ url_for('clear_history') }}" class="btn" style="background:#feebee;color:#c96570;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;" onclick="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat pemeriksaan?');">
-          ✕ Hapus Semua Riwayat
+          Hapus Semua Riwayat
         </button>
       </div>
       {% endif %}
@@ -99,7 +99,7 @@
                   Lihat Hasil →
                 </a>
                 <a href="{{ url_for('download_pdf_report_by_id', aid=item.analysis_id) }}" class="btn" style="padding:5px 10px;font-size:10.5px;background:#1b4d3e;color:#fff;border-radius:6px;text-decoration:none;font-weight:700;">
-                  📥 PDF
+                  PDF
                 </a>
               </div>
             </td>
@@ -110,7 +110,7 @@
     </div>
     {% else %}
     <div class="empty-state">
-      <div style="font-size:32px;color:#8bb99e;">◷</div>
+      <div style="width:36px;height:36px;margin:0 auto 10px;color:#8bb99e;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
       <h3 style="margin:10px 0 4px 0;">Riwayat Pemeriksaan Kosong</h3>
       <p class="muted" style="margin-bottom:16px;">Belum ada target yang dianalisis atau riwayat baru saja dibersihkan.</p>
       <div style="display:flex;gap:10px;justify-content:center;">

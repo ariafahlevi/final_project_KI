@@ -12,10 +12,10 @@
     <!-- Pilihan Model -->
     <div style="display:flex;gap:8px;">
       <a href="{{ url_for('evaluation', model='url') }}" class="btn" style="border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;text-decoration:none;{{ 'background:#2e6659;color:#fff;' if current_model == 'url' else 'background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;' }}">
-        ⌕ Model URL
+        Model URL
       </a>
       <a href="{{ url_for('evaluation', model='email') }}" class="btn" style="border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;text-decoration:none;{{ 'background:#2e6659;color:#fff;' if current_model == 'email' else 'background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;' }}">
-        ✉ Model Email
+        Model Email
       </a>
     </div>
   </div>
@@ -24,7 +24,7 @@
 <!-- 4 Metrik Kunci -->
 <div class="stats-grid eval-stats" style="grid-template-columns:repeat(4, 1fr);">
   <article class="stat-card">
-    <div class="stat-icon mint">◎</div>
+    <div class="stat-icon mint">ACC</div>
     <div>
       <p>Akurasi</p>
       <strong>{{ metrics.accuracy }}</strong>
@@ -32,7 +32,7 @@
     </div>
   </article>
   <article class="stat-card">
-    <div class="stat-icon mint">✦</div>
+    <div class="stat-icon mint">PRE</div>
     <div>
       <p>Presisi</p>
       <strong>{{ metrics.precision }}</strong>
@@ -40,7 +40,7 @@
     </div>
   </article>
   <article class="stat-card">
-    <div class="stat-icon sage">⌁</div>
+    <div class="stat-icon sage">REC</div>
     <div>
       <p>Recall</p>
       <strong>{{ metrics.recall }}</strong>
@@ -48,7 +48,7 @@
     </div>
   </article>
   <article class="stat-card">
-    <div class="stat-icon gold">★</div>
+    <div class="stat-icon gold">F1</div>
     <div>
       <p>F1-Score</p>
       <strong>{{ metrics.f1 }}</strong>
@@ -122,7 +122,7 @@
 <div class="panel" style="padding:22px;border:1px solid #c8e7d9;background:#fbfdfc;border-radius:12px;">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
     <div>
-      <h3 style="margin:0;color:#183b32;font-size:15px;">📚 Sumber Korpus Data & Sitasi Ilmiah Terverifikasi</h3>
+      <h3 style="margin:0;color:#183b32;font-size:15px;">Sumber Korpus Data & Sitasi Ilmiah Terverifikasi</h3>
       <p class="muted" style="margin-top:2px;font-size:12px;">Seluruh data pelatihan dan benchmark pengujian dapat ditelusuri dan diverifikasi secara publik.</p>
     </div>
     <span class="pill" style="background:#eaf5ee;color:#2e6659;font-weight:700;font-size:11px;">Verified Datasets</span>

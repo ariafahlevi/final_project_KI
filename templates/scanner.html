@@ -10,17 +10,17 @@
 
 <!-- Tab Navigasi Mode Analisis -->
 <div class="tab-switcher" style="display:flex;gap:10px;margin-bottom:20px;">
-  <button type="button" id="tabUrlBtn" class="btn" style="background:#2e6659;color:#fff;border-radius:20px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer;">
-    ⌕ Periksa URL
+  <button type="button" id="tabUrlBtn" class="btn" style="background:#1b4d3e;color:#fff;border-radius:6px;padding:8px 18px;font-weight:600;font-size:12px;cursor:pointer;">
+    Periksa URL
   </button>
-  <button type="button" id="tabEmailBtn" class="btn" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;border-radius:20px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer;">
-    ✉ Periksa Email
+  <button type="button" id="tabEmailBtn" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:6px;padding:8px 18px;font-weight:600;font-size:12px;cursor:pointer;">
+    Periksa Email
   </button>
 </div>
 
 <div class="scan-layout">
-  <section class="panel scan-panel">
-    <div class="scan-symbol" id="panelSymbol">⌕</div>
+  <section class="panel scan-panel" style="border-radius:10px;">
+    <div class="scan-symbol" id="panelSymbol" style="font-size:18px;font-weight:700;color:#1b4d3e;">URL</div>
     <h2 id="panelTitle">Pemeriksaan Tautan URL</h2>
     <p class="muted" id="panelSubtitle">Pastikan tautan yang Anda terima aman sebelum membukanya di browser.</p>
 
@@ -30,7 +30,7 @@
       <!-- Form URL -->
       <div id="urlInputContainer">
         <label for="urlInput">Alamat URL Tautan</label>
-        <div class="url-input-wrap"><span>↗</span><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com"></div>
+        <div class="url-input-wrap"><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com" style="padding-left:4px;"></div>
         <div class="quick-samples">
           <span class="quick-label">Contoh Cepat:</span>
           <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://192.168.1.1/secure-update-login-account/verify.php';">Tautan Berbahaya (IP)</button>
@@ -43,7 +43,7 @@
       <div id="emailInputContainer" style="display:none;">
         <label for="emailInput">Isi Pesan Email</label>
         <div style="margin-top:6px;margin-bottom:12px;">
-          <textarea id="emailInput" name="text" rows="5" placeholder="Tempelkan subjek atau isi pesan email yang mencurigakan di sini..." style="width:100%;border-radius:10px;border:1px solid #c8e0d5;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;background:#fbfdfc;box-sizing:border-box;resize:vertical;"></textarea>
+          <textarea id="emailInput" name="text" rows="5" placeholder="Tempelkan subjek atau isi pesan email yang mencurigakan di sini..." style="width:100%;border-radius:8px;border:1px solid #d1d5db;padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;background:#f9fafb;box-sizing:border-box;resize:vertical;"></textarea>
         </div>
         <div class="quick-samples">
           <span class="quick-label">Contoh Cepat (ID & EN):</span>
@@ -55,8 +55,8 @@
         </div>
       </div>
 
-      <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;" id="submitScanBtn">
-        <span id="btnIcon">⌕</span> <span id="btnText">Mulai Periksa</span> <span>→</span>
+      <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;border-radius:6px;padding:12px;" id="submitScanBtn">
+        <span id="btnText">Mulai Analisis Keamanan</span>
       </button>
       <p class="form-message" id="formMessage" role="status" style="margin-top:10px;font-size:12px;"></p>
 
@@ -78,7 +78,7 @@
 
         <!-- Terminal Output Screen -->
         <div id="terminalBody" style="background:#08130e;padding:14px 16px;font-family:'Courier New',Consolas,monospace;font-size:12px;color:#e2e8f0;line-height:1.6;min-height:140px;max-height:220px;overflow-y:auto;">
-          <div style="color:#6ee7b7;">[00.00s] ⛨ PhisGuard Hybrid Defense Engine v2.1 diinisialisasi...</div>
+          <div style="color:#6ee7b7;">[00.00s] [SYSTEM] PhisGuard Hybrid Defense Engine v2.1 diinisialisasi...</div>
         </div>
 
         <!-- Active Qwen Thought Callout -->
@@ -96,11 +96,11 @@
       </div>
     </form>
     
-    <div class="scan-footnote">⛨ &nbsp;Analisis dilakukan secara otomatis untuk mendeteksi tanda-tanda penipuan digital.</div>
+    <div class="scan-footnote">Analisis dilakukan secara otomatis dengan standar verifikasi berlapis.</div>
   </section>
 
   <aside class="panel tips-panel">
-    <div class="tips-icon">✧</div>
+    <div class="tips-icon" style="font-size:11px;font-weight:800;letter-spacing:0.5px;">TIP</div>
     <h3>Tips Keamanan Digital</h3>
     <ul>
       <li><b>Periksa Alamat Web</b>: Perhatikan nama domain secara teliti untuk menghindari situs tiruan.</li>
@@ -127,30 +127,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   tabUrl.addEventListener("click", () => {
     scanType.value = "url";
-    tabUrl.style.background = "#2e6659";
+    tabUrl.style.background = "#1b4d3e";
     tabUrl.style.color = "#fff";
-    tabEmail.style.background = "#eaf5ee";
-    tabEmail.style.color = "#2e6659";
+    tabEmail.style.background = "#f3f4f6";
+    tabEmail.style.color = "#374151";
     urlContainer.style.display = "block";
     emailContainer.style.display = "none";
     panelTitle.textContent = "Pemeriksaan Tautan URL";
     panelSubtitle.textContent = "Pastikan tautan yang Anda terima aman sebelum membukanya di browser.";
-    panelSymbol.textContent = "⌕";
+    panelSymbol.textContent = "URL";
     urlInput.required = true;
     emailInput.required = false;
   });
 
   tabEmail.addEventListener("click", () => {
     scanType.value = "email";
-    tabEmail.style.background = "#2e6659";
+    tabEmail.style.background = "#1b4d3e";
     tabEmail.style.color = "#fff";
-    tabUrl.style.background = "#eaf5ee";
-    tabUrl.style.color = "#2e6659";
+    tabUrl.style.background = "#f3f4f6";
+    tabUrl.style.color = "#374151";
     urlContainer.style.display = "none";
     emailContainer.style.display = "block";
     panelTitle.textContent = "Pemeriksaan Pesan Email";
     panelSubtitle.textContent = "Periksa apakah pesan email mengandung upaya rekayasa sosial atau penipuan.";
-    panelSymbol.textContent = "✉";
+    panelSymbol.textContent = "EMAIL";
     urlInput.required = false;
     emailInput.required = true;
   });
