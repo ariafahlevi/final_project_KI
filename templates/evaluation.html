@@ -57,7 +57,7 @@
   </article>
 </div>
 
-<div class="content-grid">
+<div class="content-grid" style="margin-bottom:20px;">
   <!-- Confusion Matrix -->
   <section class="panel">
     <div class="panel-heading">
@@ -116,5 +116,54 @@
       </p>
     </div>
   </section>
+</div>
+
+<!-- Panel Sumber Dataset & Korpus Acuan Terverifikasi -->
+<div class="panel" style="padding:22px;border:1px solid #c8e7d9;background:#fbfdfc;border-radius:12px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <div>
+      <h3 style="margin:0;color:#183b32;font-size:15px;">📚 Sumber Korpus Data & Sitasi Ilmiah Terverifikasi</h3>
+      <p class="muted" style="margin-top:2px;font-size:12px;">Seluruh data pelatihan dan benchmark pengujian dapat ditelusuri dan diverifikasi secara publik.</p>
+    </div>
+    <span class="pill" style="background:#eaf5ee;color:#2e6659;font-weight:700;font-size:11px;">Verified Datasets</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:14px;">
+    <!-- Sumber Email -->
+    <div style="padding:14px;background:#fff;border:1px solid #d4ece1;border-radius:10px;">
+      <b style="color:#2e6659;font-size:12px;text-transform:uppercase;display:block;margin-bottom:6px;">Korpus Email Phishing (17.510 Sampel)</b>
+      <p style="font-size:12px;color:#355e50;margin:0 0 8px 0;line-height:1.5;">
+        Kompilasi akademis <b>Nazario Phishing Corpus</b>, <b>Apache SpamAssassin</b>, dan benchmark <b>Enron Corporation</b>.
+      </p>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+        <a href="https://huggingface.co/datasets/zefang-liu/phishing-email-dataset" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ Hugging Face: zefang-liu/phishing-email-dataset</a>
+        <a href="https://huggingface.co/datasets/SetFit/enron_spam" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ Hugging Face: SetFit/enron_spam</a>
+      </div>
+    </div>
+
+    <!-- Sumber Kasus Indonesia -->
+    <div style="padding:14px;background:#fff;border:1px solid #d4ece1;border-radius:10px;">
+      <b style="color:#2e6659;font-size:12px;text-transform:uppercase;display:block;margin-bottom:6px;">Kurasi Ancaman Siber Indonesia (BSSN & Bank)</b>
+      <p style="font-size:12px;color:#355e50;margin:0 0 8px 0;line-height:1.5;">
+        Sampel rekayasa sosial nyata dari portal resmi <b>BSSN</b>, <b>BCA Awas Modus</b>, dan <b>Patroli Siber Polri</b> (modus m-banking & sniffing APK).
+      </p>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+        <a href="https://www.bssn.go.id" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ Portal Resmi BSSN (bssn.go.id)</a>
+        <a href="https://www.bca.co.id/id/edukasi-keamanan/Awas-Modus" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ Edukasi Keamanan BCA (Awas Modus)</a>
+      </div>
+    </div>
+
+    <!-- Sumber URL -->
+    <div style="padding:14px;background:#fff;border:1px solid #d4ece1;border-radius:10px;">
+      <b style="color:#2e6659;font-size:12px;text-transform:uppercase;display:block;margin-bottom:6px;">Dataset Tautan URL (100.871 Sampel)</b>
+      <p style="font-size:12px;color:#355e50;margin:0 0 8px 0;line-height:1.5;">
+        Dataset riset <b>Mendeley LegitPhish</b> (Hannousse & Yahi, 2021) dan feed intelijen aktif <b>OpenPhish Live</b>.
+      </p>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+        <a href="https://data.mendeley.com/datasets/hx4m73v2sf/2" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ Mendeley Data: LegitPhish V2</a>
+        <a href="https://openphish.com" target="_blank" style="color:#1b4d3e;font-weight:700;text-decoration:none;">↗ OpenPhish Live Threat Feed</a>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
