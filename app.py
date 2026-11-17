@@ -498,7 +498,6 @@ def evaluation():
 def settings():
     cfg = ml_engine.get_app_config()
     ollama_url, model_name = ml_engine.get_ollama_config()
-    google_client_id, google_client_secret = gmail_service.get_google_config()
     records = load_history_store()
     stats = compute_dashboard_stats(records)
     saved = request.args.get("saved") == "1"
@@ -507,11 +506,6 @@ def settings():
         active="settings",
         ollama_url=ollama_url,
         model_name=model_name,
-        google_client_id=google_client_id,
-        google_client_secret=google_client_secret,
-        google_configured=gmail_service.is_google_configured(),
-        google_connected="google_creds" in session,
-        google_user=session.get("google_user", ""),
         sensitivity=cfg.get("sensitivity", "normal"),
         qwen_mode=cfg.get("qwen_mode", "always"),
         saved=saved,
@@ -520,13 +514,11 @@ def settings():
 
 @app.post("/settings/save")
 def save_settings():
-    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi, Google OAuth)."""
+    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi)."""
     new_url = request.form.get("ollama_url", "").strip()
     model_name = request.form.get("model_name", "qwen2.5:7b").strip()
     sensitivity = request.form.get("sensitivity", "normal").strip()
     qwen_mode = request.form.get("qwen_mode", "always").strip()
-    google_client_id = request.form.get("google_client_id", "").strip()
-    google_client_secret = request.form.get("google_client_secret", "").strip()
     
     if new_url and not new_url.endswith("/api/generate"):
         new_url = new_url.rstrip("/") + "/api/generate"
@@ -544,9 +536,7 @@ def save_settings():
         "ollama_url": new_url,
         "model_name": model_name,
         "sensitivity": sensitivity,
-        "qwen_mode": qwen_mode,
-        "google_client_id": google_client_id,
-        "google_client_secret": google_client_secret
+        "qwen_mode": qwen_mode
     })
     
     with open(config_path, "w", encoding="utf-8") as f:
