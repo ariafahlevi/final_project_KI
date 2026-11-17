@@ -21,7 +21,12 @@ SCOPES = [
 ]
 
 def get_google_config():
-    """Mengambil Google Client ID & Secret dari Environment Variable atau config.json."""
+    """Mengambil Google Client ID & Secret dari Environment Variable (.env) atau config.json."""
+    # Selalu muat ulang dari file .env secara dinamis
+    env_file = BASE_DIR / ".env"
+    if env_file.exists():
+        load_dotenv(dotenv_path=env_file, override=True)
+
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
     
