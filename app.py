@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import secrets
 import datetime
 import urllib.parse
 from pathlib import Path
@@ -8,6 +9,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_file
 import ml_engine
 import pdf_report
+import gmail_service
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "phisguard-security-key-2026")
@@ -306,7 +308,22 @@ def dashboard():
 
 @app.get("/scan")
 def scanner():
-    return render_template("scanner.html", active="scanner")
+    tab = request.args.get("tab", "url")
+    gmail_action = request.args.get("gmail", "")
+    error_code = request.args.get("error", "")
+    google_configured = gmail_service.is_google_configured()
+    google_connected = "google_creds" in session
+    google_user = session.get("google_user", "")
+    return render_template(
+        "scanner.html",
+        active="scanner",
+        active_tab=tab,
+        gmail_action=gmail_action,
+        error_code=error_code,
+        google_configured=google_configured,
+        google_connected=google_connected,
+        google_user=google_user
+    )
 
 @app.get("/history")
 def history():
@@ -478,6 +495,7 @@ def evaluation():
 def settings():
     cfg = ml_engine.get_app_config()
     ollama_url, model_name = ml_engine.get_ollama_config()
+    google_client_id, google_client_secret = gmail_service.get_google_config()
     records = load_history_store()
     stats = compute_dashboard_stats(records)
     saved = request.args.get("saved") == "1"
@@ -486,6 +504,11 @@ def settings():
         active="settings",
         ollama_url=ollama_url,
         model_name=model_name,
+        google_client_id=google_client_id,
+        google_client_secret=google_client_secret,
+        google_configured=gmail_service.is_google_configured(),
+        google_connected="google_creds" in session,
+        google_user=session.get("google_user", ""),
         sensitivity=cfg.get("sensitivity", "normal"),
         qwen_mode=cfg.get("qwen_mode", "always"),
         saved=saved,
@@ -494,24 +517,37 @@ def settings():
 
 @app.post("/settings/save")
 def save_settings():
-    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi)."""
+    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi, Google OAuth)."""
     new_url = request.form.get("ollama_url", "").strip()
     model_name = request.form.get("model_name", "qwen2.5:7b").strip()
     sensitivity = request.form.get("sensitivity", "normal").strip()
     qwen_mode = request.form.get("qwen_mode", "always").strip()
+    google_client_id = request.form.get("google_client_id", "").strip()
+    google_client_secret = request.form.get("google_client_secret", "").strip()
     
     if new_url and not new_url.endswith("/api/generate"):
         new_url = new_url.rstrip("/") + "/api/generate"
 
-    cfg = {
+    config_path = BASE_DIR / "config.json"
+    existing_cfg = {}
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                existing_cfg = json.load(f)
+        except Exception:
+            pass
+
+    existing_cfg.update({
         "ollama_url": new_url,
         "model_name": model_name,
         "sensitivity": sensitivity,
-        "qwen_mode": qwen_mode
-    }
-    config_path = BASE_DIR / "config.json"
+        "qwen_mode": qwen_mode,
+        "google_client_id": google_client_id,
+        "google_client_secret": google_client_secret
+    })
+    
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+        json.dump(existing_cfg, f, indent=2)
 
     return redirect(url_for("settings", saved="1"))
 
@@ -644,6 +680,134 @@ def api_scan():
     save_history_store(records[:100])
 
     return jsonify(combined_result)
+
+# ==========================================
+# GOOGLE OAUTH 2.0 & GMAIL API ENDPOINTS
+# ==========================================
+
+@app.get("/auth/google")
+def google_auth_login():
+    """Menginisialisasi alur otentikasi Google OAuth 2.0 dengan proteksi CSRF state."""
+    if not gmail_service.is_google_configured():
+        return redirect(url_for("scanner", tab="email", error="google_not_configured"))
+    
+    redirect_uri = url_for("google_auth_callback", _external=True)
+    if request.headers.get("X-Forwarded-Proto") == "https" and redirect_uri.startswith("http://"):
+        redirect_uri = redirect_uri.replace("http://", "https://", 1)
+
+    state = secrets.token_urlsafe(32)
+    session["oauth_state"] = state
+    
+    # Izinkan HTTP untuk pengujian lokal
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+    
+    try:
+        auth_url, _ = gmail_service.get_authorization_url(redirect_uri, state=state)
+        return redirect(auth_url)
+    except Exception as e:
+        print(f"[AUTH ERROR] Failed to start Google OAuth: {e}")
+        return redirect(url_for("scanner", tab="email", error="oauth_init_failed"))
+
+@app.get("/auth/google/callback")
+def google_auth_callback():
+    """Menerima redirect dari Google setelah pengguna memberikan izin akses."""
+    stored_state = session.get("oauth_state")
+    returned_state = request.args.get("state")
+    
+    # Validasi CSRF Token
+    if not stored_state or stored_state != returned_state:
+        print("[AUTH ERROR] Invalid OAuth state parameter. Possible CSRF attack.")
+        return redirect(url_for("scanner", tab="email", error="invalid_state"))
+        
+    code = request.args.get("code")
+    if not code:
+        error_msg = request.args.get("error", "access_denied")
+        return redirect(url_for("scanner", tab="email", error=error_msg))
+
+    redirect_uri = url_for("google_auth_callback", _external=True)
+    if request.headers.get("X-Forwarded-Proto") == "https" and redirect_uri.startswith("http://"):
+        redirect_uri = redirect_uri.replace("http://", "https://", 1)
+
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+    try:
+        creds_dict = gmail_service.exchange_code_for_token_dict(code, redirect_uri, state=stored_state)
+        user_email = gmail_service.get_user_email(creds_dict)
+        
+        session["google_creds"] = creds_dict
+        session["google_user"] = user_email
+        session.pop("oauth_state", None)
+        
+        return redirect(url_for("scanner", tab="email", gmail="connected"))
+    except Exception as e:
+        print(f"[AUTH ERROR] Token exchange failed: {e}")
+        return redirect(url_for("scanner", tab="email", error="token_exchange_failed"))
+
+@app.get("/auth/google/logout")
+def google_auth_logout():
+    """Memutuskan koneksi akun Google dari sesi browser pengguna saat ini."""
+    session.pop("google_creds", None)
+    session.pop("google_user", None)
+    return redirect(url_for("scanner", tab="email", gmail="disconnected"))
+
+@app.get("/api/gmail/status")
+def api_gmail_status():
+    """Memeriksa status konfigurasi dan koneksi akun Gmail pengguna."""
+    configured = gmail_service.is_google_configured()
+    connected = "google_creds" in session
+    return jsonify({
+        "configured": configured,
+        "connected": connected,
+        "email": session.get("google_user", "")
+    })
+
+@app.get("/api/gmail/messages")
+def api_gmail_messages():
+    """Mengambil daftar ringkas email inbox pengguna (atau mode demo jika belum login)."""
+    force_demo = request.args.get("demo") == "1"
+    
+    if "google_creds" in session and not force_demo:
+        creds = session["google_creds"]
+        emails = gmail_service.list_inbox_messages(creds, max_results=8)
+        return jsonify({
+            "success": True,
+            "connected": True,
+            "is_demo": False,
+            "user_email": session.get("google_user", "Pengguna"),
+            "messages": emails
+        })
+    else:
+        # Fallback ke Simulasi / Demo Mode
+        mock_emails = gmail_service.get_mock_emails()
+        return jsonify({
+            "success": True,
+            "connected": False,
+            "is_demo": True,
+            "user_email": "Demo Sandbox Mode",
+            "messages": mock_emails
+        })
+
+@app.get("/api/gmail/message/<msg_id>")
+def api_gmail_message_detail(msg_id):
+    """Mengambil detail email lengkap beserta tautan tersemat dan teks siap analisis."""
+    if msg_id.startswith("mock-") or "google_creds" not in session:
+        mock_emails = gmail_service.get_mock_emails()
+        found = next((m for m in mock_emails if m["id"] == msg_id), None)
+        if found:
+            return jsonify({
+                "success": True,
+                "data": {
+                    "subject": found["subject"],
+                    "sender": found["sender"],
+                    "date": found["date"],
+                    "formatted_text": found["formatted_text"]
+                }
+            })
+        return jsonify({"success": False, "error": "Email demo tidak ditemukan"}), 404
+
+    creds = session["google_creds"]
+    detail = gmail_service.get_email_full_content(creds, msg_id)
+    return jsonify(detail)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

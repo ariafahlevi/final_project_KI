@@ -101,6 +101,47 @@
         </small>
       </div>
     </section>
+
+    <!-- 3. Integrasi Google Cloud & Gmail API -->
+    <section class="panel settings-panel" style="grid-column: 1 / -1;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <h3 style="margin:0;">3. Integrasi Google OAuth 2.0 & Gmail API</h3>
+          <p class="muted" style="margin-top:4px;">Memungkinkan pengguna login langsung ke akun Google dan memilih email dari Inbox untuk diinvestigasi secara otomatis.</p>
+        </div>
+        <div>
+          {% if google_configured %}
+            <span style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;">Google API Terkonfigurasi</span>
+          {% else %}
+            <span style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;">Mode Simulasi / Demo Aktif</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-top:16px;">
+        <div>
+          <label for="googleClientId" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Google Client ID</label>
+          <input type="text" id="googleClientId" name="google_client_id" value="{{ google_client_id }}" placeholder="xxxx-xxxx.apps.googleusercontent.com" style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+          <small class="muted" style="font-size:11px;display:block;margin-top:4px;">Didapatkan dari menu <i>APIs & Services > Credentials</i> di Google Cloud Console.</small>
+        </div>
+
+        <div>
+          <label for="googleClientSecret" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Google Client Secret</label>
+          <input type="password" id="googleClientSecret" name="google_client_secret" value="{{ google_client_secret }}" placeholder="GOCSPX-xxxx..." style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+          <small class="muted" style="font-size:11px;display:block;margin-top:4px;">Kunci rahasia klien dari Google Cloud Console.</small>
+        </div>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:11.5px;color:#334155;line-height:1.6;">
+        <b style="color:#0f172a;display:block;margin-bottom:4px;">Panduan Redirect URI Resmi di Google Cloud Console:</b>
+        Masukkan URL Callback berikut ke kolom <b>Authorized redirect URIs</b> di GCP Console:
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <code id="redirectUriBox" style="background:#ffffff;border:1px solid #cbd5e1;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#0f766e;flex:1;">{{ request.url_root.rstrip('/') }}/auth/google/callback</code>
+          <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('redirectUriBox').textContent.trim()); alert('Redirect URI berhasil disalin ke clipboard!');" style="background:#e2e8f0;font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer;">Salin URI</button>
+        </div>
+        <small class="muted" style="display:block;margin-top:6px;">*Jika belum diisi, PhisGuard secara otomatis menyediakan <b>Demo Sandbox Inbox</b> agar Anda tetap dapat menguji fitur ekstraksi email kapan saja.</small>
+      </div>
+    </section>
   </div>
 
   <!-- Tombol Simpan Konfigurasi -->
