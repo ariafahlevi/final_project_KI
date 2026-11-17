@@ -4,9 +4,12 @@ import base64
 import re
 from pathlib import Path
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = BASE_DIR / "config.json"

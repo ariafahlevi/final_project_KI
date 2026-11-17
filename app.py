@@ -7,9 +7,12 @@ import urllib.parse
 from pathlib import Path
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_file
+from dotenv import load_dotenv
 import ml_engine
 import pdf_report
 import gmail_service
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "phisguard-security-key-2026")
