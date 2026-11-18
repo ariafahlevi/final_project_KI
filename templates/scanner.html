@@ -80,6 +80,10 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                 <span>Pilih dari Inbox</span>
               </button>
+              <button type="button" onclick="switchGmailAccount()" class="btn" style="background:#ffffff;color:#1e463a;border:1px solid #c8e7d9;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="Ganti ke akun Google lain">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>Ganti Akun</span>
+              </button>
               <a href="{{ url_for('google_auth_logout') }}" style="color:#94a3b8;font-size:11px;text-decoration:none;padding:2px 4px;" title="Putus Akun Google">Putus</a>
             {% else %}
               <button type="button" id="btnConnectGmail" class="btn" onclick="openGoogleLoginPopup()" style="background:#ffffff;color:#374151;border:1px solid #cbd5e1;font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.05);cursor:pointer;">
@@ -192,9 +196,12 @@
     </div>
 
     <!-- Modal Status Banner -->
-    <div id="modalUserBanner" style="background:#f1f5f9;padding:7px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;display:flex;align-items:center;justify-content:space-between;">
+    <div id="modalUserBanner" style="background:#f1f5f9;padding:8px 20px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;display:flex;align-items:center;justify-content:space-between;">
       <span id="modalUserText">Memeriksa status akun...</span>
-      <button type="button" id="btnRefreshInbox" style="background:none;border:none;color:#0f766e;font-size:11px;font-weight:700;cursor:pointer;padding:0;">↻ Muat Ulang</button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button type="button" onclick="switchGmailAccount()" style="background:none;border:none;color:#0f766e;font-size:11px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;">Ganti Akun</button>
+        <button type="button" id="btnRefreshInbox" style="background:none;border:none;color:#0f766e;font-size:11px;font-weight:700;cursor:pointer;padding:0;">↻ Muat Ulang</button>
+      </div>
     </div>
 
     <!-- Search & Category Controls (Fixed Height / No Flex Shrink) -->
@@ -364,20 +371,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  window.openGoogleLoginPopup = function() {
+  window.openGoogleLoginPopup = function(isSwitch = false) {
     const width = 520;
     const height = 660;
     const left = Math.max(0, (window.screen.width - width) / 2);
     const top = Math.max(0, (window.screen.height - height) / 2);
+    const authUrl = isSwitch ? "/auth/google/switch?popup=1" : "/auth/google?popup=1";
 
     loginPopup = window.open(
-      "/auth/google?popup=1",
+      authUrl,
       "GoogleAuthPopup",
       `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
     );
 
     if (!loginPopup || loginPopup.closed || typeof loginPopup.closed === "undefined") {
-      window.location.href = "/auth/google";
+      window.location.href = isSwitch ? "/auth/google/switch" : "/auth/google";
       return;
     }
 
@@ -406,7 +414,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
   };
 
-  // Jika baru selesai terhubung, langsung munculkan modal Inbox otomatis
+  window.switchGmailAccount = function() {
+    window.openGoogleLoginPopup(true);
+  };
   if (params.get("gmail") === "connected") {
     setTimeout(() => {
       openGmailModal(false);
@@ -674,9 +684,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch(`/api/gmail/message/${msgId}`);
       const result = await res.json();
       const payload = result.data || result;
-      const content = payload.formatted_text || payload.body || "";
+      const content = payload.formatted_text || payload.body || (payload.subject ? `Subjek: ${payload.subject}\nPengirim: ${payload.sender || 'Pengirim'}\nWaktu: ${payload.date || ''}\n\nIsi Pesan:\n${payload.snippet || 'Konten email grafis / tanpa teks.'}` : "");
 
-      if (result.success && content) {
+      if ((result.success || content) && content) {
         emailInput.value = content;
         closeGmailModal();
         switchToEmail();

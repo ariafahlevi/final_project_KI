@@ -37,6 +37,37 @@
         </small>
       </div>
 
+      <!-- Saklar Nyala / Mati Layanan LLM -->
+      <div style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
+          <div>
+            <b style="font-size:12.5px;color:#1e293b;display:block;">Layanan Analis AI Kontekstual (LLM)</b>
+            <small class="muted" style="font-size:11px;">Aktifkan penalaran naratif Qwen 2.5 7B atau beralih ke mode Machine Learning mandiri.</small>
+          </div>
+          <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:{{ '#ecfdf5' if llm_enabled else '#f1f5f9' }};color:{{ '#065f46' if llm_enabled else '#64748b' }};">
+            {{ 'AKTIF' if llm_enabled else 'NONAKTIF' }}
+          </span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#ffffff;border:1px solid {{ '#10b981' if llm_enabled else '#e2e8f0' }};border-radius:8px;cursor:pointer;">
+            <input type="radio" name="llm_enabled" value="1" {% if llm_enabled %}checked{% endif %} style="margin-top:3px;">
+            <div>
+              <b style="font-size:12px;color:#0f172a;display:block;">Mode Hybrid Aktif (Supervised ML + Qwen 2.5 7B)</b>
+              <small class="muted" style="font-size:11px;">Memanggil Ollama/Ngrok untuk evaluasi independen, deteksi rekayasa sosial, dan konsensus ganda.</small>
+            </div>
+          </label>
+
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#ffffff;border:1px solid {{ '#10b981' if not llm_enabled else '#e2e8f0' }};border-radius:8px;cursor:pointer;">
+            <input type="radio" name="llm_enabled" value="0" {% if not llm_enabled %}checked{% endif %} style="margin-top:3px;">
+            <div>
+              <b style="font-size:12px;color:#0f172a;display:block;">Mode Mandiri (Supervised ML Murni - Respon Cepat &lt;50ms)</b>
+              <small class="muted" style="font-size:11px;">Melewati panggilan ke LLM secara penuh. Tanpa jeda waktu jaringan atau risiko timeout. Keputusan 100% dari model terlatih.</small>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <!-- Live Diagnostic Button -->
       <div style="border-top:1px solid #e5ece7;padding-top:14px;margin-top:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">

@@ -541,17 +541,19 @@ def settings():
         model_name=model_name,
         sensitivity=cfg.get("sensitivity", "normal"),
         qwen_mode=cfg.get("qwen_mode", "always"),
+        llm_enabled=cfg.get("llm_enabled", True),
         saved=saved,
         stats=stats
     )
 
 @app.post("/settings/save")
 def save_settings():
-    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi)."""
+    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi, Saklar LLM)."""
     new_url = request.form.get("ollama_url", "").strip()
     model_name = request.form.get("model_name", "qwen2.5:7b").strip()
     sensitivity = request.form.get("sensitivity", "normal").strip()
     qwen_mode = request.form.get("qwen_mode", "always").strip()
+    llm_enabled = request.form.get("llm_enabled") == "1"
     
     if new_url and not new_url.endswith("/api/generate"):
         new_url = new_url.rstrip("/") + "/api/generate"
@@ -569,7 +571,8 @@ def save_settings():
         "ollama_url": new_url,
         "model_name": model_name,
         "sensitivity": sensitivity,
-        "qwen_mode": qwen_mode
+        "qwen_mode": qwen_mode,
+        "llm_enabled": llm_enabled
     })
     
     with open(config_path, "w", encoding="utf-8") as f:
@@ -768,6 +771,7 @@ def _verify_oauth_state(state_token):
 def google_auth_login():
     """Menginisialisasi alur otentikasi Google OAuth 2.0 dengan signed CSRF state."""
     is_popup = request.args.get("popup") == "1"
+    is_switch = request.args.get("switch") == "1"
     session["oauth_is_popup"] = is_popup
 
     if not gmail_service.is_google_configured():
@@ -783,13 +787,22 @@ def google_auth_login():
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     
     try:
-        auth_url, _ = gmail_service.get_authorization_url(redirect_uri, state=state)
+        prompt_mode = "select_account consent"
+        auth_url, _ = gmail_service.get_authorization_url(redirect_uri, state=state, prompt=prompt_mode)
         return redirect(auth_url)
     except Exception as e:
         print(f"[AUTH ERROR] Failed to start Google OAuth: {e}")
         if is_popup:
             return render_template("oauth_error_popup.html", error_message=f"Gagal memulai otentikasi Google: {str(e)}")
         return redirect(url_for("scanner", tab="email", error="oauth_init_failed"))
+
+@app.get("/auth/google/switch")
+def google_auth_switch():
+    """Mengosongkan sesi aktif dan langsung membuka pemilihan akun Google OAuth (select_account)."""
+    session.pop("google_creds", None)
+    session.pop("google_user", None)
+    is_popup = request.args.get("popup") == "1"
+    return redirect(url_for("google_auth_login", popup="1" if is_popup else "0", switch="1"))
 
 @app.get("/auth/google/callback")
 def google_auth_callback():

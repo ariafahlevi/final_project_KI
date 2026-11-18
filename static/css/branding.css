@@ -1,27 +1,47 @@
 img.brand-mark {
-  flex: 0 0 39px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   object-fit: contain;
-  padding: 5px;
-  background: #c5e9d6;
+  padding: 0;
+  background: transparent;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 26px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   color: #fff;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.brand:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .brand b {
   color: #fff;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  display: block;
 }
 
 .brand small {
   color: #a9cfc0;
+  font-size: 10px;
+  letter-spacing: 1px;
+  display: block;
+  margin-top: 1px;
 }
 
 /* Quick sample pills for easy testing */

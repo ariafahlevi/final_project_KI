@@ -27,7 +27,8 @@ def get_app_config():
         "ollama_url": "https://finn-unfecundated-lucienne.ngrok-free.dev/api/generate",
         "model_name": "qwen2.5:7b",
         "sensitivity": "normal",
-        "qwen_mode": "always"
+        "qwen_mode": "always",
+        "llm_enabled": True
     }
     if config_file.exists():
         try:
@@ -650,6 +651,8 @@ def predict_email_ml(text: str) -> dict:
     }
 
 def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> dict:
+    cfg = get_app_config()
+    llm_enabled = cfg.get("llm_enabled", True)
     ollama_url, model_name = get_ollama_config()
     features = ml_result.get("features", {})
     ml_pred = ml_result.get("prediction", "legitimate")
@@ -664,6 +667,42 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
         "live_web_inspection": inspection_meta,
         "detection_stage": "Independent Context Assessment (Blind Assessment)"
     }
+
+    # JIKA FITUR LLM DINONAKTIFKAN DI PENGATURAN:
+    # Langsung kembalikan hasil Mode Mandiri instan (0ms latency, tanpa timeout)
+    if not llm_enabled:
+        brand_alert = inspection_meta.get("brand_spoofing_detected", False)
+        waf_alert = inspection_meta.get("waf_phishing_block", False)
+        is_inst = inspection_meta.get("is_institutional", False)
+        is_trusted = inspection_meta.get("is_trusted_platform", False) or (inspection_meta.get("root_domain") in TRUSTED_ROOT_DOMAINS)
+
+        second_verdict = ml_pred
+        if brand_alert or waf_alert:
+            second_verdict = "phishing"
+        elif is_inst or is_trusted:
+            second_verdict = "legitimate"
+
+        status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)" if second_verdict == "phishing" else "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
+        treatment = "Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning (Layanan Analis AI dinonaktifkan di Pengaturan)."
+        explanation = "Layanan Analis AI Kontekstual dinonaktifkan di Pengaturan. Keputusan keamanan dihasilkan secara mandiri oleh model Supervised Machine Learning terkalibrasi."
+        
+        return {
+            "source": "Supervised ML (Analis AI Dinonaktifkan)",
+            "is_live_ollama": False,
+            "engine_mode": "single_ml",
+            "ollama_error_detail": "Layanan Analis AI (LLM) dinonaktifkan oleh pengguna di menu Pengaturan.",
+            "model_name": model_name,
+            "second_verdict": second_verdict,
+            "status_text": status_text,
+            "treatment": treatment,
+            "explanation": explanation,
+            "indicators": [
+                "Evaluasi mandiri model Supervised Machine Learning",
+                "Penalaran kontekstual LLM dinonaktifkan di Pengaturan"
+            ],
+            "social_engineering": {},
+            "evidence_bundle": evidence_bundle
+        }
 
     # 2. Prompt Analisis Keamanan Siber Efisien & Presisi (RSCIT Framework)
     prompt = f"""Kamu adalah analis keamanan siber independen dalam sistem pertahanan hybrid.
@@ -737,114 +776,68 @@ Balas HANYA format JSON valid:
         else:
             ollama_error_detail = f"Server Ollama HTTP {res.status_code}"
     except requests.exceptions.Timeout:
-        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >22 detik)"
+        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >6 detik)"
     except Exception:
-        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal"
+        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (Ollama tidak aktif)"
 
-    # Logika Pengamanan / Fallback Cerdas & Koreksi Tegas
-    # Jika Qwen mencoba meloloskan phishing yang jelas terbukti ada Brand Spoofing atau WAF Block:
+    # Logika Pengamanan & Rekonsiliasi Jujur
     brand_alert = inspection_meta.get("brand_spoofing_detected", False)
     waf_alert = inspection_meta.get("waf_phishing_block", False)
     is_inst = inspection_meta.get("is_institutional", False)
     is_trusted = inspection_meta.get("is_trusted_platform", False) or (inspection_meta.get("root_domain") in TRUSTED_ROOT_DOMAINS)
-    
-    if brand_alert or waf_alert:
-        second_verdict = "phishing"
-        brand_name = inspection_meta.get("brand_spoofed_name", "Entitas Terkenal")
-        explanation = (
-            f"Evaluasi forensik independen menegaskan bahwa target ini adalah PHISHING. "
-            f"Ditemukan indikasi peniruan entitas ({brand_name}) melalui manipulasi subdomain pada root domain asing '{inspection_meta.get('root_domain')}'. "
-            f"Selain itu, respons halaman web mengindikasikan status proteksi/pemblokiran ({inspection_meta.get('page_title')})."
-        )
-        indicators = [
-            f"Subdomain Spoofing meniru brand {brand_name}",
-            f"Root Domain tidak terafiliasi resmi ({inspection_meta.get('root_domain')})",
-            f"Inspeksi Halaman Web: {inspection_meta.get('page_title')}"
-        ]
-        soc_eng = {
-            "urgency_level": "Tinggi",
-            "impersonation": brand_name,
-            "credential_harvesting": True,
-            "potential_objective": f"Pencurian kredensial akun pengguna & peniruan layanan {brand_name}"
-        }
-    elif (is_inst or is_trusted) and not waf_alert and not brand_alert:
-        second_verdict = "legitimate"
-        ent_desc = "Institusi Pendidikan/Pemerintahan Resmi" if is_inst else "Platform Digital / Layanan Resmi Terdaftar"
-        explanation = (
-            f"Evaluasi forensik independen mengonfirmasi bahwa target merupakan {ent_desc} ({inspection_meta.get('root_domain')}). "
-            f"Domain resmi terdaftar memiliki reputasi sah, tidak ditemukan indikasi peniruan merek, maupun pemblokiran keamanan."
-        )
-        indicators = [
-            f"Domain terdaftar sah ({ent_desc})",
-            f"Struktur alamat dan subdomain wajar ({inspection_meta.get('subdomain')})",
-            f"Respons server normal: {inspection_meta.get('page_title')[:55]}"
-        ]
-        soc_eng = {
-            "urgency_level": "Rendah",
-            "impersonation": "Tidak Terindikasi (Resmi)",
-            "credential_harvesting": False,
-            "potential_objective": "Layanan / komunikasi resmi terdaftar"
-        }
-    elif not is_live_ollama:
-        second_verdict = ml_pred
-        if ml_pred == "phishing":
-            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
+
+    if is_live_ollama:
+        # LIVE OLLAMA AKTIF:
+        # Koreksi jika Qwen mencoba meloloskan phishing yang terbukti ada Brand Spoofing atau WAF Block:
+        if brand_alert or waf_alert:
+            second_verdict = "phishing"
+            brand_name = inspection_meta.get("brand_spoofed_name", "Entitas Terkenal")
             explanation = (
-                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
-                "Hasil ini merupakan keputusan mandiri model Machine Learning berdasarkan pola fitur URL/teks yang terdeteksi."
+                f"Evaluasi forensik independen menegaskan bahwa target ini adalah PHISHING. "
+                f"Ditemukan indikasi peniruan entitas ({brand_name}) melalui manipulasi subdomain pada root domain asing '{inspection_meta.get('root_domain')}'. "
+                f"Selain itu, respons halaman web mengindikasikan status proteksi/pemblokiran ({inspection_meta.get('page_title')})."
             )
             indicators = [
-                "Evaluasi berbasis model Supervised Machine Learning",
-                "Fitur statistik & pola teks mengindikasikan risiko keamanan",
-                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
+                f"Subdomain Spoofing meniru brand {brand_name}",
+                f"Root Domain tidak terafiliasi resmi ({inspection_meta.get('root_domain')})",
+                f"Inspeksi Halaman Web: {inspection_meta.get('page_title')}"
             ]
             soc_eng = {
-                "urgency_level": "Sedang",
-                "impersonation": "Perlu Review Analis",
-                "credential_harvesting": inspection_meta.get("has_login_form", False),
-                "potential_objective": "Perlu verifikasi manual lanjutan"
+                "urgency_level": "Tinggi",
+                "impersonation": brand_name,
+                "credential_harvesting": True,
+                "potential_objective": f"Pencurian kredensial akun pengguna & peniruan layanan {brand_name}"
             }
-        else:
-            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Karakteristik konsisten dengan interaksi aman."
+        elif (is_inst or is_trusted) and not waf_alert and not brand_alert:
+            second_verdict = "legitimate"
+            ent_desc = "Institusi Pendidikan/Pemerintahan Resmi" if is_inst else "Platform Digital / Layanan Resmi Terdaftar"
             explanation = (
-                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
-                "Hasil ini merupakan keputusan mandiri model Machine Learning yang mengonfirmasi target aman tanpa indikator ancaman."
+                f"Evaluasi forensik independen mengonfirmasi bahwa target merupakan {ent_desc} ({inspection_meta.get('root_domain')}). "
+                f"Domain resmi terdaftar memiliki reputasi sah, tidak ditemukan indikasi peniruan merek, maupun pemblokiran keamanan."
             )
             indicators = [
-                "Evaluasi mandiri model Supervised Machine Learning",
-                "Struktur domain / konten konsisten dengan pola aman",
-                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
+                f"Domain terdaftar sah ({ent_desc})",
+                f"Struktur alamat dan subdomain wajar ({inspection_meta.get('subdomain')})",
+                f"Respons server normal: {inspection_meta.get('page_title')[:55]}"
             ]
             soc_eng = {
                 "urgency_level": "Rendah",
-                "impersonation": "Tidak Terindikasi (Resmi)" if (is_inst or is_trusted) else "Tidak Terindikasi",
+                "impersonation": "Tidak Terindikasi (Resmi)",
                 "credential_harvesting": False,
-                "potential_objective": "Aktivitas digital normal / komunikasi wajar"
+                "potential_objective": "Layanan / komunikasi resmi terdaftar"
             }
-    elif not second_verdict:
-        second_verdict = "inconclusive"
-        explanation = "Model penalaran tidak memberikan keputusan konklusif."
-        indicators = ["Penalaran konteks tidak konklusif"]
-        soc_eng = {
-            "urgency_level": "Sedang",
-            "impersonation": "Tidak Teridentifikasi",
-            "credential_harvesting": False,
-            "potential_objective": "Perlu tinjauan manual"
-        }
+        elif not second_verdict:
+            second_verdict = "inconclusive"
+            explanation = "Model penalaran tidak memberikan keputusan konklusif."
+            indicators = ["Penalaran konteks tidak konklusif"]
+            soc_eng = {
+                "urgency_level": "Sedang",
+                "impersonation": "Tidak Teridentifikasi",
+                "credential_harvesting": False,
+                "potential_objective": "Perlu tinjauan manual"
+            }
 
-    # 3. Penetapan Status Keputusan (Mandiri ML vs Konsensus Dual-Engine)
-    if not is_live_ollama:
-        final_verdict = second_verdict if second_verdict in ["phishing", "legitimate"] else ml_pred
-        if final_verdict == "phishing":
-            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
-        else:
-            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Target terverifikasi aman."
-    else:
-        # Dual-Engine Live Consensus Matrix (Hanya jika Ollama Live Aktif)
+        # Dual-Engine Live Consensus Matrix
         if second_verdict == "inconclusive":
             status_text = "Tidak Cukup Bukti (Review Manual Disarankan)"
             treatment = "Nyatakan keterbatasan data dan prioritaskan verifikasi manual oleh analis."
@@ -860,6 +853,42 @@ Balas HANYA format JSON valid:
         else:  # legitimate & legitimate
             status_text = "Sepakat (Konsensus Dual-Engine): Tidak Ditemukan Indikator Kuat"
             treatment = "Konsensus kedua mesin verifikasi mengonfirmasi tidak ada indikator ancaman."
+
+    else:
+        # LLM OFFLINE:
+        # 100% Jujur: Tidak ada fabrikasi penilaian rekayasa sosial atau klaim konsensus
+        second_verdict = ml_pred
+        if brand_alert or waf_alert:
+            second_verdict = "phishing"
+        elif is_inst or is_trusted:
+            second_verdict = "legitimate"
+
+        if second_verdict == "phishing":
+            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
+            explanation = (
+                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
+                "Hasil ini merupakan keputusan mandiri model Machine Learning berdasarkan pola fitur URL/teks yang terdeteksi."
+            )
+            indicators = [
+                "Evaluasi mandiri model Supervised Machine Learning",
+                "Fitur statistik & pola teks mengindikasikan risiko keamanan",
+                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
+            ]
+        else:
+            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Karakteristik konsisten dengan interaksi aman."
+            explanation = (
+                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
+                "Hasil ini merupakan keputusan mandiri model Machine Learning yang mengonfirmasi target aman tanpa indikator ancaman."
+            )
+            indicators = [
+                "Evaluasi mandiri model Supervised Machine Learning",
+                "Struktur domain / konten konsisten dengan pola aman",
+                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
+            ]
+        # Tidak ada soc_eng artifisial saat offline!
+        soc_eng = {}
 
     return {
         "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else "Supervised ML (Analis AI Sedang Offline)",

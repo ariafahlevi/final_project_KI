@@ -24,9 +24,12 @@
       <h3 style="margin:4px 0 2px 0;word-break:break-all;font-family:monospace;font-size:15px;color:#183b32;">{{ data.input }}</h3>
       <small class="muted">Tipe Analisis: <b>{{ data.type|upper }}</b> &nbsp;|&nbsp; Status Sistem: <b style="color:#1b4d3e;">{{ data.qwen_result.status_text if data.qwen_result else 'Selesai' }}</b></small>
     </div>
-    <div>
-      <span class="tag {{ 'danger-tag' if data.ml_result.prediction == 'phishing' else 'safe-tag' }}" style="font-size:13px;padding:6px 14px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="tag {{ 'danger-tag' if data.ml_result.prediction == 'phishing' else 'safe-tag' }}" style="font-size:13px;padding:6px 14px;letter-spacing:0.5px;">
         {{ data.ml_result.prediction|upper }}
+      </span>
+      <span style="font-size:16px;font-weight:800;color:{{ '#b91c1c' if data.ml_result.prediction == 'phishing' else '#15803d' }};">
+        {{ data.ml_result.confidence }}%
       </span>
     </div>
   </div>
@@ -39,7 +42,11 @@
       <h3 style="margin:0;color:#183b32;">1. Matriks Rekonsiliasi Hasil (Bab 10)</h3>
       <p class="muted" style="margin-top:2px;font-size:12px;">Perbandingan keputusan statistik Machine Learning dan evaluasi independen LLM.</p>
     </div>
-    <span class="pill" style="background:#eaf5ee;color:#2e6659;font-weight:700;font-size:11px;">Dual-Engine Consensus</span>
+    {% if data.qwen_result and data.qwen_result.is_live_ollama %}
+      <span class="pill" style="background:#eaf5ee;color:#2e6659;font-weight:700;font-size:11px;">Dual-Engine Consensus</span>
+    {% else %}
+      <span class="pill" style="background:#fef3c7;color:#92400e;font-weight:700;font-size:11px;">Mode Mandiri (Supervised ML)</span>
+    {% endif %}
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
@@ -60,9 +67,10 @@
     </div>
 
     <!-- Box Qwen 2.5 7B -->
+    {% if data.qwen_result and data.qwen_result.is_live_ollama %}
     <div style="background:#f2faf5;border:1px solid #b8dfcd;border-radius:10px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <b style="color:#1b4d3e;font-size:12px;text-transform:uppercase;">Pemeriksa 2: Qwen 2.5 7B (Ollama)</b>
+        <b style="color:#1b4d3e;font-size:12px;text-transform:uppercase;">Pemeriksa 2: Qwen 2.5 7B (Ollama Live)</b>
         <span class="tag {{ 'danger-tag' if data.qwen_result and data.qwen_result.second_verdict == 'phishing' else 'safe-tag' }}">
           {{ (data.qwen_result.second_verdict|upper) if data.qwen_result else 'SELESAI' }}
         </span>
@@ -74,6 +82,22 @@
         Mode evaluasi: <b>Blind Assessment</b> (menganalisis bukti tanpa bias label dari model ML awal).
       </p>
     </div>
+    {% else %}
+    <div style="background:#fcfcfc;border:1px dashed #d1d5db;border-radius:10px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <b style="color:#6b7280;font-size:12px;text-transform:uppercase;">Pemeriksa 2: Analis AI Kontekstual</b>
+        <span style="font-size:10.5px;background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-weight:600;">
+          OFFLINE / DILEWATI
+        </span>
+      </div>
+      <div style="font-size:13px;color:#4b5563;margin-bottom:6px;">
+        Status: <b>Layanan Analis AI Offline</b>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.5;">
+        Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning tanpa intervensi simulasi.
+      </p>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Status Rekonsiliasi & Perlakuan Sistem -->
@@ -106,14 +130,26 @@
   </div>
 </div>
 
-<!-- 3. Analisis Rekayasa Sosial & Penjelasan Qwen 2.5 7B -->
+<!-- 3. Analisis Rekayasa Sosial & Penjelasan Naratif -->
 <div class="panel" style="margin-bottom:20px;padding:20px;">
   <div style="margin-bottom:12px;">
-    <h3 style="margin:0;color:#183b32;">3. Evaluasi Rekayasa Sosial & Penjelasan Naratif Qwen 2.5 7B</h3>
-    <p class="muted" style="margin-top:2px;font-size:12px;">Penalaran kontekstual berbasis kecerdasan buatan mengenai pola psikologis dan motif ancaman.</p>
+    <h3 style="margin:0;color:#183b32;">
+      {% if data.qwen_result and data.qwen_result.is_live_ollama %}
+        3. Evaluasi Rekayasa Sosial & Penjelasan Naratif Qwen 2.5 7B
+      {% else %}
+        3. Catatan Evaluasi & Transparansi Sistem
+      {% endif %}
+    </h3>
+    <p class="muted" style="margin-top:2px;font-size:12px;">
+      {% if data.qwen_result and data.qwen_result.is_live_ollama %}
+        Penalaran kontekstual berbasis kecerdasan buatan mengenai pola psikologis dan motif ancaman.
+      {% else %}
+        Status operasional inferensi saat model penalaran konteks (LLM) sedang offline atau dinonaktifkan.
+      {% endif %}
+    </p>
   </div>
 
-  {% if data.qwen_result and data.qwen_result.social_engineering %}
+  {% if data.qwen_result and data.qwen_result.is_live_ollama and data.qwen_result.social_engineering %}
   <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-bottom:16px;">
     <div style="padding:12px;background:#f9fcfa;border:1px solid #c8e7d9;border-radius:8px;">
       <small class="muted" style="font-size:11px;display:block;">Tingkat Urgensi Psikologis</small>
@@ -128,11 +164,16 @@
       <b style="color:#183b32;font-size:14px;">{{ 'Terindikasi Form Login' if data.qwen_result.social_engineering.credential_harvesting else 'Tidak Ditemukan' }}</b>
     </div>
   </div>
+  {% else %}
+  <div style="padding:12px 14px;background:#f8faf9;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;font-size:12px;color:#475569;line-height:1.5;">
+    <b style="color:#1e463a;display:block;margin-bottom:2px;">Analisis Naratif Kontekstual Dilewati:</b>
+    Layanan Qwen 2.5 7B saat ini sedang offline atau dinonaktifkan. Seluruh parameter psikologis di atas tidak disimulasikan secara artifisial, melainkan keputusan keamanan sepenuhnya dipercayakan pada klasifikasi model Supervised Machine Learning.
+  </div>
   {% endif %}
 
-  <!-- Narasi Utama LLM -->
+  <!-- Narasi Utama LLM / Penjelasan Sistem -->
   <div style="background:#f4fbf8;border-left:4px solid #1b4d3e;padding:16px;border-radius:8px;font-size:13.5px;line-height:1.7;color:#1e463a;margin-bottom:14px;">
-    <b>Penjelasan Analis AI (Qwen 2.5 7B):</b><br/>
+    <b>{% if data.qwen_result and data.qwen_result.is_live_ollama %}Penjelasan Analis AI (Qwen 2.5 7B):{% else %}Penjelasan Keputusan Mandiri (Supervised ML):{% endif %}</b><br/>
     {{ data.qwen_result.explanation if data.qwen_result else 'Penjelasan tidak tersedia.' }}
   </div>
 

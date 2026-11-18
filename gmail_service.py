@@ -58,7 +58,7 @@ def get_client_config(redirect_uri):
         }
     }
 
-def get_authorization_url(redirect_uri, state=None):
+def get_authorization_url(redirect_uri, state=None, prompt="select_account consent"):
     """Menghasilkan URL login resmi Google OAuth 2.0 dengan proteksi state CSRF."""
     client_config = get_client_config(redirect_uri)
     flow = Flow.from_client_config(
@@ -70,7 +70,7 @@ def get_authorization_url(redirect_uri, state=None):
     auth_kwargs = {
         "access_type": "offline",
         "include_granted_scopes": "true",
-        "prompt": "consent"
+        "prompt": prompt
     }
     if state:
         auth_kwargs["state"] = state
@@ -395,6 +395,11 @@ def get_email_full_content(creds_dict, message_id):
         
         # Bersihkan whitespace berlebih
         cleaned_body = re.sub(r'\n{3,}', '\n\n', body_text).strip()
+        if not cleaned_body:
+            # Fallback ke snippet jika email tidak memiliki body plain text/html yang dapat diurai
+            cleaned_body = (detail.get("snippet") or "").strip()
+            if not cleaned_body:
+                cleaned_body = "Pesan email ini berisi konten grafis/multimedia atau pemberitahuan tanpa teks panjang."
         
         # Saring URL unik dan relevan (maksimal 5 tautan terpenting tanpa noise duplikasi tracking)
         distinct_urls = []

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}PhishGuard AI{% endblock %}</title>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/phishguard-mark.svg') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/phishguard-icon-256.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="{{ url_for('dashboard') }}">
-      <img class="brand-mark" src="{{ url_for('static', filename='img/phishguard-mark.svg') }}" alt="">
+      <img class="brand-mark" src="{{ url_for('static', filename='img/phishguard-icon-256.png') }}" alt="PhishGuard AI Logo">
       <span><b>PhishGuard</b><small>AI SECURITY</small></span>
     </a>
     <div class="nav-label">MENU UTAMA</div>
