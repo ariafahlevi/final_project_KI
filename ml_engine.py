@@ -668,8 +668,8 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
         "detection_stage": "Independent Context Assessment (Blind Assessment)"
     }
 
-    # JIKA FITUR LLM DINONAKTIFKAN DI PENGATURAN:
-    # Langsung kembalikan hasil Mode Mandiri instan (0ms latency, tanpa timeout)
+    # JIKA FITUR LLM DINONAKTIFKAN DI PENGATURAN (KONDISI 3: MODE MANDIRI MUTLAK):
+    # Langsung kembalikan hasil Mode Mandiri instan (0ms latency, tanpa panggil jaringan)
     if not llm_enabled:
         brand_alert = inspection_meta.get("brand_spoofing_detected", False)
         waf_alert = inspection_meta.get("waf_phishing_block", False)
@@ -683,14 +683,14 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
             second_verdict = "legitimate"
 
         status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)" if second_verdict == "phishing" else "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
-        treatment = "Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning (Layanan Analis AI dinonaktifkan di Pengaturan)."
-        explanation = "Layanan Analis AI Kontekstual dinonaktifkan di Pengaturan. Keputusan keamanan dihasilkan secara mandiri oleh model Supervised Machine Learning terkalibrasi."
+        treatment = "Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning (Mode Mandiri aktif di Pengaturan)."
+        explanation = "Mode Mandiri aktif di Pengaturan. Keputusan keamanan dihasilkan 100% mandiri oleh model Supervised Machine Learning tanpa ketergantungan pada LLM."
         
         return {
-            "source": "Supervised ML (Analis AI Dinonaktifkan)",
+            "source": "Supervised ML (Mode Mandiri Murni)",
             "is_live_ollama": False,
             "engine_mode": "single_ml",
-            "ollama_error_detail": "Layanan Analis AI (LLM) dinonaktifkan oleh pengguna di menu Pengaturan.",
+            "ollama_error_detail": "Layanan Analis AI (LLM) dinonaktifkan di Pengaturan. Sistem beroperasi penuh di Mode Mandiri.",
             "model_name": model_name,
             "second_verdict": second_verdict,
             "status_text": status_text,
@@ -698,7 +698,7 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
             "explanation": explanation,
             "indicators": [
                 "Evaluasi mandiri model Supervised Machine Learning",
-                "Penalaran kontekstual LLM dinonaktifkan di Pengaturan"
+                "Mode Mandiri aktif — panggilan LLM dilewati sepenuhnya"
             ],
             "social_engineering": {},
             "evidence_bundle": evidence_bundle
@@ -864,11 +864,12 @@ Balas HANYA format JSON valid:
             second_verdict = "legitimate"
 
         if second_verdict == "phishing":
-            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
+            status_text = "Dialihkan ke Mode Mandiri: Terindikasi Phishing (ML Engine)"
+            treatment = "Mode Hybrid dipilih, namun server LLM tidak aktif. Evaluasi dialihkan secara mandiri ke model Supervised Machine Learning."
             explanation = (
-                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
-                "Hasil ini merupakan keputusan mandiri model Machine Learning berdasarkan pola fitur URL/teks yang terdeteksi."
+                "Server Analis AI (Qwen 2.5 7B) tidak dapat dijangkau (Offline / Timeout). "
+                "Sistem secara otomatis mengalihkan evaluasi ke Mode Mandiri (Supervised ML). "
+                "Disarankan beralih ke Mode Mandiri di menu Pengaturan jika server LLM belum aktif."
             )
             indicators = [
                 "Evaluasi mandiri model Supervised Machine Learning",
@@ -876,11 +877,12 @@ Balas HANYA format JSON valid:
                 "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
             ]
         else:
-            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
-            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Karakteristik konsisten dengan interaksi aman."
+            status_text = "Dialihkan ke Mode Mandiri: Terindikasi Aman (ML Engine)"
+            treatment = "Mode Hybrid dipilih, namun server LLM tidak aktif. Evaluasi dialihkan secara mandiri ke model Supervised Machine Learning."
             explanation = (
-                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
-                "Hasil ini merupakan keputusan mandiri model Machine Learning yang mengonfirmasi target aman tanpa indikator ancaman."
+                "Server Analis AI (Qwen 2.5 7B) tidak dapat dijangkau (Offline / Timeout). "
+                "Sistem secara otomatis mengalihkan evaluasi ke Mode Mandiri (Supervised ML). "
+                "Disarankan beralih ke Mode Mandiri di menu Pengaturan jika server LLM belum aktif."
             )
             indicators = [
                 "Evaluasi mandiri model Supervised Machine Learning",
@@ -891,9 +893,9 @@ Balas HANYA format JSON valid:
         soc_eng = {}
 
     return {
-        "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else "Supervised ML (Analis AI Sedang Offline)",
+        "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else ("Supervised ML (Dialihkan ke Mode Mandiri - LLM Offline)" if llm_enabled else "Supervised ML (Mode Mandiri Murni)"),
         "is_live_ollama": is_live_ollama,
-        "engine_mode": "hybrid_consensus" if is_live_ollama else "single_ml",
+        "engine_mode": "hybrid_consensus" if is_live_ollama else ("fallback_mandiri" if llm_enabled else "single_ml"),
         "ollama_error_detail": ollama_error_detail,
         "model_name": model_name,
         "second_verdict": second_verdict,

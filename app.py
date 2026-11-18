@@ -584,6 +584,8 @@ def save_settings():
 @app.get("/api/ollama-status")
 def test_ollama():
     """Uji koneksi cepat ke endpoint Ollama tanpa timeout."""
+    cfg = ml_engine.get_app_config()
+    llm_enabled = cfg.get("llm_enabled", True)
     ollama_url, model_name = ml_engine.get_ollama_config()
     start_time = datetime.datetime.now()
     
@@ -591,8 +593,12 @@ def test_ollama():
     base_url = f"{parsed.scheme}://{parsed.netloc}"
     
     try:
-        # Cek ketersediaan server & daftar model (instan <1 detik)
-        r_tags = requests.get(f"{base_url}/api/tags", timeout=6)
+        # Cek ketersediaan server & daftar model (instan <1 detik) dengan bypass interstitial ngrok
+        headers = {
+            "ngrok-skip-browser-warning": "true",
+            "User-Agent": "PhisGuard-Engine/2.1"
+        }
+        r_tags = requests.get(f"{base_url}/api/tags", headers=headers, timeout=6)
         latency_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
         
         if r_tags.status_code == 200:
@@ -611,33 +617,38 @@ def test_ollama():
                 "code": 200,
                 "latency_ms": latency_ms,
                 "installed_models": installed,
-                "message": msg
+                "message": msg,
+                "llm_enabled": llm_enabled
             })
         elif r_tags.status_code == 403:
             return jsonify({
                 "status": "forbidden",
                 "code": 403,
                 "latency_ms": latency_ms,
-                "message": "Status 403 Forbidden: Host tunneling ditolak oleh Ollama. Jalankan ngrok dengan: ngrok http 11434 --host-header=\"localhost:11434\""
+                "message": "Status 403 Forbidden: Host tunneling ditolak oleh Ollama. Jalankan ngrok dengan: ngrok http 11434 --host-header=\"localhost:11434\"",
+                "llm_enabled": llm_enabled
             }), 403
         else:
             return jsonify({
                 "status": "error",
                 "code": r_tags.status_code,
                 "latency_ms": latency_ms,
-                "message": f"Server merespons kode HTTP {r_tags.status_code}."
+                "message": f"Server merespons kode HTTP {r_tags.status_code}.",
+                "llm_enabled": llm_enabled
             }), 500
     except requests.exceptions.Timeout:
         return jsonify({
             "status": "timeout",
             "code": 504,
-            "message": "Koneksi timeout (>6 detik). Tunnel Ngrok atau server Ollama tidak dapat dijangkau."
+            "message": "Koneksi timeout (>6 detik). Tunnel Ngrok atau server Ollama tidak dapat dijangkau.",
+            "llm_enabled": llm_enabled
         }), 504
     except Exception as e:
         return jsonify({
             "status": "offline",
             "code": 503,
-            "message": f"Gagal terhubung ke Ollama ({str(e)}). Pastikan link tunnel aktif dan teman Anda sudah membuka Ollama."
+            "message": f"Gagal terhubung ke Ollama ({str(e)}). Pastikan link tunnel aktif dan teman Anda sudah membuka Ollama.",
+            "llm_enabled": llm_enabled
         }), 503
 
 @app.post("/scan/result")

@@ -44,8 +44,10 @@
     </div>
     {% if data.qwen_result and data.qwen_result.is_live_ollama %}
       <span class="pill" style="background:#eaf5ee;color:#2e6659;font-weight:700;font-size:11px;">Dual-Engine Consensus</span>
+    {% elif data.qwen_result and data.qwen_result.engine_mode == 'fallback_mandiri' %}
+      <span class="pill" style="background:#fef3c7;color:#92400e;font-weight:700;font-size:11px;">Dialihkan ke Mode Mandiri (LLM Offline)</span>
     {% else %}
-      <span class="pill" style="background:#fef3c7;color:#92400e;font-weight:700;font-size:11px;">Mode Mandiri (Supervised ML)</span>
+      <span class="pill" style="background:#f1f5f9;color:#475569;font-weight:700;font-size:11px;">Mode Mandiri (Supervised ML)</span>
     {% endif %}
   </div>
 
@@ -82,19 +84,34 @@
         Mode evaluasi: <b>Blind Assessment</b> (menganalisis bukti tanpa bias label dari model ML awal).
       </p>
     </div>
+    {% elif data.qwen_result and data.qwen_result.engine_mode == 'fallback_mandiri' %}
+    <div style="background:#fffbeb;border:1px dashed #fcd34d;border-radius:10px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <b style="color:#92400e;font-size:12px;text-transform:uppercase;">Pemeriksa 2: Analis AI Kontekstual</b>
+        <span style="font-size:10.5px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-weight:700;">
+          OFFLINE &rarr; DIALIHKAN KE MANDIRI
+        </span>
+      </div>
+      <div style="font-size:13px;color:#78350f;margin-bottom:6px;">
+        Status: <b>Server LLM Tidak Merespons</b>
+      </div>
+      <p style="font-size:12px;color:#92400e;margin:0;line-height:1.5;">
+        Mode Hybrid dipilih di Pengaturan, namun karena server LLM sedang offline, sistem otomatis melempar pemeriksaan ke model Supervised Machine Learning.
+      </p>
+    </div>
     {% else %}
     <div style="background:#fcfcfc;border:1px dashed #d1d5db;border-radius:10px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <b style="color:#6b7280;font-size:12px;text-transform:uppercase;">Pemeriksa 2: Analis AI Kontekstual</b>
         <span style="font-size:10.5px;background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-weight:600;">
-          OFFLINE / DILEWATI
+          DINONAKTIFKAN
         </span>
       </div>
       <div style="font-size:13px;color:#4b5563;margin-bottom:6px;">
-        Status: <b>Layanan Analis AI Offline</b>
+        Status: <b>Mode Mandiri Murni</b>
       </div>
       <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.5;">
-        Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning tanpa intervensi simulasi.
+        Pengguna memilih Mode Mandiri di Pengaturan. Panggilan LLM dilewati secara penuh untuk efisiensi dan kecepatan inferensi maksimal.
       </p>
     </div>
     {% endif %}

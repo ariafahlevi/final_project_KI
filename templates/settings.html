@@ -66,6 +66,27 @@
             </div>
           </label>
         </div>
+
+        <!-- Banner Peringatan Jika Mode Hybrid Dipilih tapi LLM Mati -->
+        <div id="llmOfflineWarning" style="display:none;margin-top:12px;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#991b1b;font-size:12px;line-height:1.5;">
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <b style="color:#7f1d1d;font-size:12.5px;">Peringatan: Server LLM Saat Ini Tidak Merespons (Offline)</b>
+              <div id="llmOfflineReason" style="margin-top:2px;color:#991b1b;">
+                Endpoint Ollama/Ngrok tidak dapat dijangkau. Jika Anda tetap memilih Mode Hybrid, sistem akan otomatis melempar hasil scan ke <b>Mode Mandiri</b>.
+              </div>
+              <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button type="button" id="btnSwitchToMandiri" class="btn" style="background:#dc2626;color:#ffffff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
+                  Alihkan ke Mode Mandiri Sekarang
+                </button>
+                <button type="button" id="btnCheckLLMAgain" class="btn" style="background:#ffffff;color:#991b1b;border:1px solid #fca5a5;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+                  Cek Ulang Status
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Live Diagnostic Button -->
@@ -146,6 +167,75 @@
 document.addEventListener("DOMContentLoaded", () => {
   const btnTest = document.getElementById("btnTestOllama");
   const resultBox = document.getElementById("testResultBox");
+  const radioHybrid = document.querySelector('input[name="llm_enabled"][value="1"]');
+  const radioMandiri = document.querySelector('input[name="llm_enabled"][value="0"]');
+  const warningBox = document.getElementById("llmOfflineWarning");
+  const reasonText = document.getElementById("llmOfflineReason");
+  const btnSwitchMandiri = document.getElementById("btnSwitchToMandiri");
+  const btnRecheck = document.getElementById("btnCheckLLMAgain");
+
+  async function checkLLMHealth() {
+    if (!radioHybrid || !radioHybrid.checked) {
+      if (warningBox) warningBox.style.display = "none";
+      return;
+    }
+    try {
+      const res = await fetch("/api/test-ollama");
+      const data = await res.json();
+      if (res.status === 200 && data.status === "online") {
+        if (warningBox) warningBox.style.display = "none";
+      } else {
+        if (warningBox && radioHybrid.checked) {
+          warningBox.style.display = "block";
+          if (reasonText && data.message) {
+            reasonText.innerHTML = `Server Ollama tidak merespons: <b>${escapeHtml(data.message)}</b>. Karena LLM mati, sistem akan otomatis melempar hasil scan ke <b>Mode Mandiri</b>.`;
+          }
+        }
+      }
+    } catch (e) {
+      if (warningBox && radioHybrid.checked) {
+        warningBox.style.display = "block";
+        if (reasonText) {
+          reasonText.innerHTML = "Server Ollama/Ngrok tidak dapat dihubungi. Disarankan beralih ke <b>Mode Mandiri</b> agar pemindaian berjalan optimal.";
+        }
+      }
+    }
+  }
+
+  if (radioHybrid) {
+    radioHybrid.addEventListener("change", () => {
+      if (radioHybrid.checked) checkLLMHealth();
+    });
+  }
+
+  if (radioMandiri) {
+    radioMandiri.addEventListener("change", () => {
+      if (radioMandiri.checked && warningBox) {
+        warningBox.style.display = "none";
+      }
+    });
+  }
+
+  if (btnSwitchMandiri && radioMandiri) {
+    btnSwitchMandiri.addEventListener("click", () => {
+      radioMandiri.checked = true;
+      if (warningBox) warningBox.style.display = "none";
+    });
+  }
+
+  if (btnRecheck) {
+    btnRecheck.addEventListener("click", checkLLMHealth);
+  }
+
+  // Pengecekan otomatis saat halaman dimuat jika Mode Hybrid aktif
+  if (radioHybrid && radioHybrid.checked) {
+    setTimeout(checkLLMHealth, 300);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
 
   if (btnTest && resultBox) {
     btnTest.addEventListener("click", async () => {
@@ -166,22 +256,26 @@ document.addEventListener("DOMContentLoaded", () => {
           resultBox.style.border = "1px solid #5c9f88";
           resultBox.style.color = "#183b32";
           resultBox.innerHTML = `<b>[AKTIF] KONEKSI TERSAMBUNG (${data.latency_ms} ms)</b><br>${data.message}`;
+          if (warningBox) warningBox.style.display = "none";
         } else if (res.status === 403) {
           resultBox.style.background = "#fff8f0";
           resultBox.style.border = "1px solid #f0b27a";
           resultBox.style.color = "#a04000";
           resultBox.innerHTML = `<b>[PERINGATAN] STATUS 403 FORBIDDEN</b><br>${data.message}`;
+          if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
         } else {
           resultBox.style.background = "#feebee";
           resultBox.style.border = "1px solid #f3c2c7";
           resultBox.style.color = "#b33946";
           resultBox.innerHTML = `<b>[GAGAL] KONEKSI GAGAL (${res.status})</b><br>${data.message}`;
+          if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
         }
       } catch (err) {
         resultBox.style.background = "#feebee";
         resultBox.style.border = "1px solid #f3c2c7";
         resultBox.style.color = "#b33946";
         resultBox.innerHTML = `<b>[ERROR] GAGAL TERHUBUNG</b><br>${err.message}`;
+        if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
       } finally {
         btnTest.disabled = false;
         btnTest.textContent = "Uji Koneksi Ollama";

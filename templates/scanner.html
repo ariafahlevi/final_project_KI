@@ -118,6 +118,18 @@
       <button class="btn btn-primary btn-wide" type="submit" style="margin-top:10px;border-radius:6px;padding:12px;" id="submitScanBtn">
         <span id="btnText">Mulai Analisis Keamanan</span>
       </button>
+
+      <!-- Status Notice Bar (Muncul Jika Mode Hybrid Aktif Tapi LLM Offline) -->
+      <div id="scannerHybridNotice" style="display:none;margin-top:10px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11.5px;color:#92400e;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Server LLM offline. Hasil scan akan otomatis dialihkan ke <b>Mode Mandiri (Supervised ML)</b>.</span>
+          </div>
+          <a href="{{ url_for('settings') }}" style="color:#b45309;font-weight:700;text-decoration:underline;font-size:11px;">Pengaturan</a>
+        </div>
+      </div>
+
       <p class="form-message" id="formMessage" role="status" style="margin-top:10px;font-size:12px;"></p>
 
       <!-- LIVE TERMINAL AKTIVITAS FORENSIK & REASONING -->

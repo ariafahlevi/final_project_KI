@@ -7,15 +7,61 @@ document.addEventListener("DOMContentLoaded", () => {
   const topBadge = document.getElementById("topEngineBadge");
   const topDot = document.getElementById("topEngineDot");
   const topText = document.getElementById("topEngineText");
-  if (topBadge && topDot && topText) {
-    topDot.style.background = "#10b981";
-    topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
-    topText.textContent = "Proteksi AI Aktif";
-    topBadge.title = "Sistem Deteksi PhisGuard Aktif & Memindai";
-    topBadge.style.borderColor = "#a7f3d0";
-    topBadge.style.background = "#ecfdf5";
-    topBadge.style.color = "#065f46";
+
+  async function updateTopEngineBadge() {
+    if (!topBadge || !topDot || !topText) return;
+    try {
+      const res = await fetch("/api/ollama-status");
+      const data = await res.json();
+      if (!data.llm_enabled) {
+        // KONDISI 3: MODE MANDIRI MUTLAK DIPILIH PENGGUNA
+        topDot.style.background = "#64748b";
+        topDot.style.boxShadow = "0 0 0 2px rgba(100,116,139,0.25)";
+        topText.textContent = "Mode Mandiri (ML)";
+        topBadge.title = "Mode Mandiri Aktif: Inferensi 100% diproses oleh model Supervised Machine Learning.";
+        topBadge.style.borderColor = "#cbd5e1";
+        topBadge.style.background = "#f1f5f9";
+        topBadge.style.color = "#475569";
+      } else if (data.status === "online") {
+        // KONDISI 2: MODE HYBRID AKTIF & LLM LIVE MERESPONS
+        topDot.style.background = "#10b981";
+        topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
+        topText.textContent = "Proteksi Hybrid Aktif";
+        topBadge.title = "Konsensus Dual-Engine Siap: Supervised ML + Qwen 2.5 7B Aktif.";
+        topBadge.style.borderColor = "#a7f3d0";
+        topBadge.style.background = "#ecfdf5";
+        topBadge.style.color = "#065f46";
+      } else {
+        // KONDISI 1: MODE HYBRID DIPILIH TAPI LLM MATI/OFFLINE -> FALLBACK MANDIRI
+        topDot.style.background = "#f59e0b";
+        topDot.style.boxShadow = "0 0 0 2px rgba(245,158,11,0.25)";
+        topText.textContent = "Mandiri (LLM Offline)";
+        topBadge.title = "Peringatan: Server LLM offline. Evaluasi otomatis dialihkan ke Mode Mandiri.";
+        topBadge.style.borderColor = "#fde68a";
+        topBadge.style.background = "#fffbeb";
+        topBadge.style.color = "#92400e";
+      }
+
+      const hybridNotice = document.getElementById("scannerHybridNotice");
+      if (hybridNotice) {
+        if (data.llm_enabled && data.status !== "online") {
+          hybridNotice.style.display = "block";
+        } else {
+          hybridNotice.style.display = "none";
+        }
+      }
+    } catch (e) {
+      // Fallback aman default
+      topDot.style.background = "#10b981";
+      topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
+      topText.textContent = "Proteksi ML Siap";
+      topBadge.style.borderColor = "#a7f3d0";
+      topBadge.style.background = "#ecfdf5";
+      topBadge.style.color = "#065f46";
+    }
   }
+
+  updateTopEngineBadge();
 
   const form = document.getElementById("scanForm");
   if (form) {

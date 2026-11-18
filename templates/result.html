@@ -32,6 +32,8 @@
     <span class="eyebrow" style="font-size:9.5px;letter-spacing:1px;">
       {% if result.qwen and result.qwen.is_live_ollama %}
         KONSENSUS REKONSILIASI DUAL-ENGINE
+      {% elif result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}
+        DIALIHKAN KE MODE MANDIRI (LLM OFFLINE)
       {% else %}
         KEPUTUSAN MANDIRI (SUPERVISED ML)
       {% endif %}
@@ -46,10 +48,18 @@
     <div style="max-height:48px;overflow-y:auto;font-family:monospace;font-size:11.5px;color:#183b32;word-break:break-all;line-height:1.4;">
       {{ result.url }}
     </div>
-    {% if result.qwen and not result.qwen.is_live_ollama %}
-    <div style="margin-top:6px;font-size:11px;color:#854d0e;display:flex;align-items:center;gap:5px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>Analis AI (Qwen 2.5) sedang offline. Hasil analisis diperoleh mandiri dari model Supervised ML terkalibrasi.</span>
+    {% if result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}
+    <div style="margin-top:8px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span><b>Peringatan:</b> Mode Hybrid aktif, namun server LLM mati/offline. Evaluasi otomatis dialihkan ke Mode Mandiri.</span>
+      </div>
+      <a href="{{ url_for('settings') }}" style="color:#b45309;font-weight:700;text-decoration:underline;">Ubah ke Mode Mandiri di Pengaturan &rarr;</a>
+    </div>
+    {% elif result.qwen and not result.qwen.is_live_ollama %}
+    <div style="margin-top:6px;font-size:11px;color:#64748b;display:flex;align-items:center;gap:5px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+      <span>Mode Mandiri aktif: Keputusan 100% diproses oleh model Supervised Machine Learning terkalibrasi.</span>
     </div>
     {% endif %}
   </div>
@@ -66,15 +76,19 @@
       <b style="font-size:13.5px;color:#111827;display:block;">
         {% if result.qwen and result.qwen.is_live_ollama %}
           Evaluasi Analis AI Kontekstual (Qwen 2.5 7B)
+        {% elif result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}
+          Status Evaluasi: Dialihkan ke Mode Mandiri
         {% else %}
-          Status Evaluasi Analis AI Kontekstual
+          Mode Analisis: Mandiri (Supervised ML)
         {% endif %}
       </b>
       <span style="font-size:11px;color:#6b7280;margin-top:2px;display:block;">
         {% if result.qwen and result.qwen.is_live_ollama %}
           Verifikasi Kontekstual: <span style="font-weight:700;color:{{ '#b91c1c' if result.qwen and result.qwen.second_verdict == 'phishing' else '#15803d' }};text-transform:uppercase;">{{ 'Terindikasi Phishing' if result.qwen and result.qwen.second_verdict == 'phishing' else 'Terindikasi Aman' }}</span>
+        {% elif result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}
+          Status: <span style="font-weight:700;color:#b45309;text-transform:uppercase;">LLM Offline &rarr; Fallback Mandiri</span>
         {% else %}
-          Mode Analisis: <span style="font-weight:700;color:#92400e;text-transform:uppercase;">Mandiri (Supervised ML)</span>
+          Status: <span style="font-weight:700;color:#0f766e;text-transform:uppercase;">Mode Mandiri Aktif</span>
         {% endif %}
       </span>
     </div>
@@ -84,10 +98,15 @@
           <span style="width:5px;height:5px;border-radius:50%;background:#10b981;display:inline-block;"></span>
           Verifikasi Konteks Selesai (Qwen 2.5 7B)
         </span>
-      {% else %}
+      {% elif result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}
         <span style="display:inline-flex;align-items:center;gap:5px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:3px 9px;border-radius:6px;font-size:10.5px;font-weight:600;">
           <span style="width:5px;height:5px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
-          Analis AI Offline (Mode Mandiri ML)
+          LLM Offline &rarr; Dialihkan ke Mode Mandiri
+        </span>
+      {% else %}
+        <span style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:3px 9px;border-radius:6px;font-size:10.5px;font-weight:600;">
+          <span style="width:5px;height:5px;border-radius:50%;background:#64748b;display:inline-block;"></span>
+          Mode Mandiri (Supervised ML)
         </span>
       {% endif %}
     </div>
