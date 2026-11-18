@@ -8,7 +8,7 @@ import datetime
 import urllib.parse
 from pathlib import Path
 import requests
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_file, has_request_context
 from dotenv import load_dotenv
 import ml_engine
 import pdf_report
@@ -708,12 +708,28 @@ def _generate_oauth_state(is_popup=False):
     sig = hmac.new(app.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{payload}:{sig}"
 
+def _is_popup_flow(state_token=None):
+    """Mendeteksi secara proaktif apakah permintaan OAuth berasal dari jendela popup."""
+    if has_request_context():
+        if session.get("oauth_is_popup"):
+            return True
+    if state_token:
+        try:
+            unquoted = urllib.parse.unquote(str(state_token))
+            parts = unquoted.split(":")
+            if len(parts) >= 2 and parts[1] == "1":
+                return True
+        except Exception:
+            pass
+    return False
+
 def _verify_oauth_state(state_token):
     """Memverifikasi keaslian signed state token dan mengekstrak flag popup."""
     if not state_token:
         return False, False
     try:
-        parts = state_token.split(":")
+        unquoted = urllib.parse.unquote(str(state_token))
+        parts = unquoted.split(":")
         if len(parts) != 3:
             return False, False
         ts, popup_flag, sig = parts
@@ -756,28 +772,30 @@ def google_auth_login():
 @app.get("/auth/google/callback")
 def google_auth_callback():
     """Menerima redirect dari Google setelah pengguna memberikan izin akses."""
-    returned_state = request.args.get("state")
-    is_valid_state, is_popup = _verify_oauth_state(returned_state)
+    returned_state = request.args.get("state", "")
+    is_popup = _is_popup_flow(returned_state)
     
-    # Fallback cek session biasa jika token tidak berformat signed HMAC
-    if not is_valid_state:
+    is_valid_state, verified_popup = _verify_oauth_state(returned_state)
+    if is_valid_state:
+        is_popup = verified_popup
+    else:
         stored_state = session.get("oauth_state")
-        if stored_state and stored_state == returned_state:
+        if stored_state and (stored_state == returned_state or urllib.parse.unquote(str(stored_state)) == urllib.parse.unquote(str(returned_state))):
             is_valid_state = True
-            is_popup = session.get("oauth_is_popup", False)
+            is_popup = session.get("oauth_is_popup", is_popup)
 
     # Validasi CSRF Token
     if not is_valid_state:
         print(f"[AUTH ERROR] Invalid OAuth state parameter: {returned_state}. Possible CSRF attack or expired.")
         if is_popup:
-            return render_template("oauth_error_popup.html", error_message="Validasi keamanan CSRF state gagal atau kedaluwarsa. Silakan ulangi.")
+            return render_template("oauth_error_popup.html", error_message="Validasi keamanan CSRF state tidak valid atau kedaluwarsa. Silakan ulangi.")
         return redirect(url_for("scanner", tab="email", error="invalid_state"))
         
     code = request.args.get("code")
     if not code:
         error_msg = request.args.get("error", "access_denied")
         if is_popup:
-            return render_template("oauth_error_popup.html", error_message="Izin akses tidak diberikan oleh pengguna atau dibatalkan.")
+            return render_template("oauth_error_popup.html", error_message=f"Izin akses tidak diberikan oleh pengguna atau dibatalkan ({error_msg}).")
         return redirect(url_for("scanner", tab="email", error=error_msg))
 
     redirect_uri = _get_clean_redirect_uri()

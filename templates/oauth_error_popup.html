@@ -48,12 +48,36 @@
     <button onclick="window.close()" style="background:#334155;color:#f8fafc;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;">Tutup Jendela</button>
   </div>
   <script>
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: "GMAIL_AUTH_ERROR", error: "{{ error_message }}" }, "*");
-        setTimeout(() => { window.close(); }, 2000);
-      }
-    } catch (e) {}
+    function notifyError() {
+      const errorMsg = {{ error_message | tojson }};
+
+      // 1. Kirim via postMessage ke window.opener
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: "GMAIL_AUTH_ERROR", error: errorMsg }, "*");
+        }
+      } catch (e) {}
+
+      // 2. Kirim via BroadcastChannel
+      try {
+        if ("BroadcastChannel" in window) {
+          const channel = new BroadcastChannel("phisguard_auth");
+          channel.postMessage({ type: "GMAIL_AUTH_ERROR", error: errorMsg });
+        }
+      } catch (e) {}
+
+      // 3. Simpan di localStorage untuk storage listener
+      try {
+        localStorage.setItem("phisguard_gmail_error", errorMsg);
+      } catch (e) {}
+
+      // 4. Tutup jendela popup otomatis setelah 2.5 detik
+      setTimeout(() => {
+        try { window.close(); } catch (e) {}
+      }, 2500);
+    }
+
+    notifyError();
   </script>
 </body>
 </html>

@@ -266,50 +266,99 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // GOOGLE OAUTH POPUP WINDOW HANDLER
+  // GOOGLE OAUTH POPUP WINDOW & MULTI-CHANNEL SYNC
   // ==========================================
+  let loginPopup = null;
+
+  function onAuthSuccess() {
+    if (loginPopup && !loginPopup.closed) {
+      try { loginPopup.close(); } catch (e) {}
+    }
+    window.location.href = "http://127.0.0.1:5000/scan?tab=email&gmail=connected";
+  }
+
+  function onAuthError(errorMsg) {
+    if (loginPopup && !loginPopup.closed) {
+      try { loginPopup.close(); } catch (e) {}
+    }
+    if (errorMsg) {
+      console.warn("Google Auth Notice:", errorMsg);
+    }
+  }
+
+  // 1. Channel sinkronisasi via BroadcastChannel
+  if ("BroadcastChannel" in window) {
+    try {
+      const authChannel = new BroadcastChannel("phisguard_auth");
+      authChannel.onmessage = (event) => {
+        if (event.data && event.data.type === "GMAIL_AUTH_SUCCESS") {
+          onAuthSuccess();
+        } else if (event.data && event.data.type === "GMAIL_AUTH_ERROR") {
+          onAuthError(event.data.error);
+        }
+      };
+    } catch (e) {}
+  }
+
+  // 2. Channel sinkronisasi via Storage Event
+  window.addEventListener("storage", (e) => {
+    if (e.key === "phisguard_gmail_connected") {
+      onAuthSuccess();
+    } else if (e.key === "phisguard_gmail_error") {
+      onAuthError(e.newValue);
+    }
+  });
+
+  // 3. Channel sinkronisasi via postMessage window.opener
+  window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "GMAIL_AUTH_SUCCESS") {
+      onAuthSuccess();
+    } else if (event.data && event.data.type === "GMAIL_AUTH_ERROR") {
+      onAuthError(event.data.error);
+    }
+  });
+
   window.openGoogleLoginPopup = function() {
     const width = 520;
     const height = 660;
     const left = Math.max(0, (window.screen.width - width) / 2);
     const top = Math.max(0, (window.screen.height - height) / 2);
 
-    const popup = window.open(
+    loginPopup = window.open(
       "/auth/google?popup=1",
       "GoogleAuthPopup",
       `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
     );
 
-    if (!popup || popup.closed || typeof popup.closed === "undefined") {
-      // Jika browser memblokir popup, gunakan redirect standar
+    if (!loginPopup || loginPopup.closed || typeof loginPopup.closed === "undefined") {
       window.location.href = "/auth/google";
       return;
     }
 
-    // Polling per detik untuk mengecek apakah popup ditutup oleh user
+    // 4. Polling background ke server setiap 1.5 detik
     const pollTimer = setInterval(async () => {
-      if (popup.closed) {
-        clearInterval(pollTimer);
-        // Cek status ke backend apakah sudah berhasil login
-        try {
-          const res = await fetch("/api/gmail/status");
-          const data = await res.json();
-          if (data.connected) {
-            window.location.href = "/scan?tab=email&gmail=connected";
-          }
-        } catch (e) {}
-      }
-    }, 1000);
-  };
+      try {
+        const res = await fetch("/api/gmail/status");
+        const data = await res.json();
+        if (data.connected) {
+          clearInterval(pollTimer);
+          onAuthSuccess();
+          return;
+        }
+      } catch (e) {}
 
-  // Menerima pesan postMessage saat popup otentikasi berhasil
-  window.addEventListener("message", (event) => {
-    if (event.data && event.data.type === "GMAIL_AUTH_SUCCESS") {
-      window.location.href = "/scan?tab=email&gmail=connected";
-    } else if (event.data && event.data.type === "GMAIL_AUTH_ERROR") {
-      alert("Otentikasi Google: " + event.data.error);
-    }
-  });
+      if (loginPopup && loginPopup.closed) {
+        clearInterval(pollTimer);
+        setTimeout(async () => {
+          try {
+            const res = await fetch("/api/gmail/status");
+            const data = await res.json();
+            if (data.connected) onAuthSuccess();
+          } catch (e) {}
+        }, 500);
+      }
+    }, 1500);
+  };
 
   // Jika baru selesai terhubung, langsung munculkan modal Inbox otomatis
   if (params.get("gmail") === "connected") {

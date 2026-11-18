@@ -48,16 +48,40 @@
     <small style="color:#64748b; font-size:11px;">Jendela ini akan menutup otomatis dalam sekejap...</small>
   </div>
   <script>
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: "GMAIL_AUTH_SUCCESS", email: "{{ user_email }}" }, "*");
-        setTimeout(() => { window.close(); }, 800);
-      } else {
-        setTimeout(() => { window.location.href = "/scan?tab=email&gmail=connected"; }, 1000);
-      }
-    } catch (e) {
-      setTimeout(() => { window.location.href = "/scan?tab=email&gmail=connected"; }, 1000);
+    function notifySuccess() {
+      // 1. Kirim via postMessage ke window.opener (jika ada)
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: "GMAIL_AUTH_SUCCESS", email: "{{ user_email }}" }, "*");
+        }
+      } catch (e) {}
+
+      // 2. Kirim via BroadcastChannel (bebas hambatan cross-origin/COOP)
+      try {
+        if ("BroadcastChannel" in window) {
+          const channel = new BroadcastChannel("phisguard_auth");
+          channel.postMessage({ type: "GMAIL_AUTH_SUCCESS", email: "{{ user_email }}" });
+        }
+      } catch (e) {}
+
+      // 3. Simpan sinyal di localStorage untuk ditangkap storage event listener
+      try {
+        localStorage.setItem("phisguard_gmail_connected", Date.now().toString());
+      } catch (e) {}
+
+      // 4. Tutup popup setelah 600ms, atau fallback redirect jika dibuka di tab biasa
+      setTimeout(() => {
+        try {
+          window.close();
+        } catch (e) {}
+        // Jika window.close() dicegah browser (misal user buka langsung sebagai tab biasa):
+        setTimeout(() => {
+          window.location.href = "http://127.0.0.1:5000/scan?tab=email&gmail=connected";
+        }, 300);
+      }, 600);
     }
+
+    notifySuccess();
   </script>
 </body>
 </html>

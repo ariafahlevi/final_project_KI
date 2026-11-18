@@ -63,15 +63,18 @@ def get_authorization_url(redirect_uri, state=None):
     flow = Flow.from_client_config(
         client_config,
         scopes=SCOPES,
-        redirect_uri=redirect_uri
+        redirect_uri=redirect_uri,
+        autogenerate_code_verifier=False
     )
+    auth_kwargs = {
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+        "prompt": "consent"
+    }
     if state:
-        flow.state = state
-    auth_url, generated_state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent"
-    )
+        auth_kwargs["state"] = state
+
+    auth_url, generated_state = flow.authorization_url(**auth_kwargs)
     return auth_url, generated_state
 
 def exchange_code_for_token_dict(code, redirect_uri, state=None):
@@ -81,7 +84,8 @@ def exchange_code_for_token_dict(code, redirect_uri, state=None):
         client_config,
         scopes=SCOPES,
         redirect_uri=redirect_uri,
-        state=state
+        state=state,
+        autogenerate_code_verifier=False
     )
     flow.fetch_token(code=code)
     creds = flow.credentials
