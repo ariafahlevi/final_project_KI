@@ -151,6 +151,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (qwenThoughtText) qwenThoughtText.textContent = "Menganalisis manipulasi psikologis, peniruan identitas, dan form login...";
       }, 2800));
 
+      timers.push(setTimeout(() => {
+        logTerminal("#38bdf8", `[INFERENCE] Qwen 2.5 7B sedang memproses penalaran kontekstual mendalam...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Menunggu penyelesaian inferensi naratif dari model Qwen 2.5 7B via Ollama...";
+      }, 5500));
+
+      timers.push(setTimeout(() => {
+        logTerminal("#a7f3d0", `[CONSENSUS] Menyelaraskan hasil ekstraksi bukti dengan inferensi bahasa alami...`);
+        if (qwenThoughtText) qwenThoughtText.textContent = "Memadukan temuan statistik Machine Learning dengan hasil evaluasi konteks AI...";
+      }, 12000));
+
       try {
         const response = await fetch("/api/scan", {
           method: "POST",

@@ -650,6 +650,77 @@ def predict_email_ml(text: str) -> dict:
         "recommendation": recommendation
     }
 
+def _parse_qwen_json(raw_response: str) -> dict:
+    """Ekstraksi dan parsing respons JSON dari model LLM secara andal dan tahan error."""
+    if not raw_response or not isinstance(raw_response, str):
+        return {}
+
+    text = raw_response.strip()
+
+    # 1. Bersihkan markdown codeblock jika ada
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0].strip()
+
+    # 2. Coba parse langsung
+    try:
+        res = json.loads(text)
+        if isinstance(res, dict):
+            return res
+    except Exception:
+        pass
+
+    # 3. Cari substring { ... }
+    m = re.search(r'(\{[\s\S]*\})', text)
+    if m:
+        try:
+            res = json.loads(m.group(1))
+            if isinstance(res, dict):
+                return res
+        except Exception:
+            pass
+
+    # 4. Tangani JSON terpotong (truncated karena limit token num_predict)
+    first_brace = text.find('{')
+    if first_brace != -1:
+        sub = text[first_brace:]
+        for suffix in ['"]}', '"}', ']', '}']:
+            try:
+                res = json.loads(sub + suffix)
+                if isinstance(res, dict):
+                    return res
+            except Exception:
+                continue
+
+    # 5. Regex extraction untuk field-field utama jika parsing terputus parah
+    fallback = {}
+    m_verdict = re.search(r'"second_verdict"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if m_verdict:
+        fallback["second_verdict"] = m_verdict.group(1).lower()
+    
+    m_urgency = re.search(r'"urgency_level"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if m_urgency:
+        fallback["urgency_level"] = m_urgency.group(1)
+
+    m_imp = re.search(r'"impersonation"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if m_imp:
+        fallback["impersonation"] = m_imp.group(1)
+
+    m_cred = re.search(r'"credential_harvesting"\s*:\s*(true|false)', text, re.IGNORECASE)
+    if m_cred:
+        fallback["credential_harvesting"] = m_cred.group(1).lower() == "true"
+
+    m_obj = re.search(r'"potential_objective"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if m_obj:
+        fallback["potential_objective"] = m_obj.group(1)
+
+    m_exp = re.search(r'"explanation"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+    if m_exp:
+        fallback["explanation"] = m_exp.group(1)
+
+    return fallback
+
 def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> dict:
     cfg = get_app_config()
     llm_enabled = cfg.get("llm_enabled", True)
@@ -747,18 +818,18 @@ Balas HANYA format JSON valid:
                 "stream": False,
                 "format": "json",
                 "options": {
-                    "num_predict": 120,
+                    "num_predict": 256,
                     "temperature": 0.1,
                     "num_ctx": 1536
                 }
             },
             headers=headers,
-            timeout=6
+            timeout=45
         )
         if res.status_code == 200:
             data = res.json()
             raw_response = data.get("response", "{}")
-            parsed = json.loads(raw_response)
+            parsed = _parse_qwen_json(raw_response)
             
             second_verdict = str(parsed.get("second_verdict", "inconclusive")).strip().lower()
             if second_verdict not in ["phishing", "legitimate", "inconclusive"]:
@@ -776,9 +847,9 @@ Balas HANYA format JSON valid:
         else:
             ollama_error_detail = f"Server Ollama HTTP {res.status_code}"
     except requests.exceptions.Timeout:
-        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >6 detik)"
-    except Exception:
-        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (Ollama tidak aktif)"
+        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >45 detik)"
+    except Exception as e:
+        ollama_error_detail = f"Koneksi dialihkan ke mesin analis internal ({str(e)})"
 
     # Logika Pengamanan & Rekonsiliasi Jujur
     brand_alert = inspection_meta.get("brand_spoofing_detected", False)
