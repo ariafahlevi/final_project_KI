@@ -383,6 +383,10 @@ def show_result_by_id(aid):
     record = get_record_by_id(aid)
     if record and record.get("full_result"):
         full_res = record["full_result"]
+        # Sanitasi data sesi lawas agar konsisten dengan mode engine aktual
+        if full_res.get("qwen") and not full_res.get("qwen", {}).get("is_live_ollama"):
+            if "Sepakat" in full_res.get("status_text", ""):
+                full_res["status_text"] = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)" if full_res.get("prediction") == "phishing" else "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
         session["last_result"] = full_res
         session["last_explanation"] = {
             "analysis_id": aid,
@@ -441,6 +445,14 @@ def show_result():
             session["last_result"] = result
         else:
             return redirect(url_for("scanner"))
+
+    # Sanitasi data sesi lawas agar konsisten dengan mode engine aktual
+    if result and result.get("qwen") and not result.get("qwen", {}).get("is_live_ollama"):
+        if "Sepakat" in result.get("status_text", ""):
+            result["status_text"] = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)" if result.get("prediction") == "phishing" else "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
+        if result.get("qwen") and "Sepakat" in result.get("qwen", {}).get("status_text", ""):
+            result["qwen"]["status_text"] = result["status_text"]
+
     return render_template("result.html", active="scanner", result=result)
 
 @app.get("/report/pdf")

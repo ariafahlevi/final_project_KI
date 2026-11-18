@@ -116,7 +116,13 @@ TRUSTED_ROOT_DOMAINS = {
     'theatlantic.com', 'wsj.com', 'nytimes.com', 'bloomberg.com', 'reuters.com',
     'nvidia.com', 'intel.com', 'amd.com', 'openai.com', 'anthropic.com',
     'netflix.com', 'spotify.com', 'zoom.us', 'slack.com', 'notion.so', 'figma.com',
-    'canva.com', 'dropbox.com', 'cloudflare.com', 'vercel.com', 'render.com'
+    'canva.com', 'dropbox.com', 'cloudflare.com', 'vercel.com', 'render.com',
+    # Ekosistem Developer, SaaS, Cloud & Newsletter Sah
+    'supabase.com', 'supabase.io', 'stripe.com', 'midtrans.com', 'xendit.co',
+    'postman.com', 'docker.com', 'npmjs.com', 'pypi.org', 'stackoverflow.com',
+    'digitalocean.com', 'heroku.com', 'netlify.com', 'sentry.io', 'datadog.com',
+    'linear.app', 'atlassian.com', 'jira.com', 'trello.com', 'asana.com', 'clickup.com',
+    'customer.io', 'mailchimp.com', 'sendgrid.net', 'hubspot.com', 'substack.com', 'medium.com'
 }
 
 def parse_domain_parts(host: str) -> dict:

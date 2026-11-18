@@ -8,8 +8,12 @@
     <h1 style="margin-bottom:4px;font-size:26px;letter-spacing:-0.5px;">Hasil <span>Analisis Keamanan</span></h1>
     <p class="muted" style="font-size:12px;">Keputusan terpadu dari klasifikasi Machine Learning dan penalaran kontekstual Qwen 2.5 7B.</p>
   </div>
-  <div>
-    <a href="{{ url_for('download_pdf_report_by_id', aid=result.analysis_id) if result.analysis_id else url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;border-radius:8px;padding:10px 18px;font-weight:600;font-size:11.5px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="{{ url_for('scanner', tab=('email' if result.input_type == 'email' else 'url')) }}" class="btn" style="background:#ffffff;color:#1b4d3e;border:1px solid #cbd5e1;border-radius:8px;padding:9px 15px;font-weight:600;font-size:11.5px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      Pindai Ulang Target
+    </a>
+    <a href="{{ url_for('download_pdf_report_by_id', aid=result.analysis_id) if result.analysis_id else url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;border-radius:8px;padding:9px 16px;font-weight:600;font-size:11.5px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
       Unduh Laporan PDF Resmi
     </a>
   </div>
@@ -32,14 +36,20 @@
         KEPUTUSAN MANDIRI (SUPERVISED ML)
       {% endif %}
     </span>
-    <h2 style="font-size:17px;margin:2px 0 4px;font-weight:700;">{{ result.status_text or ('Terindikasi Phishing' if result.prediction == 'phishing' else 'Terindikasi Aman') }}</h2>
+    <h2 style="font-size:17px;margin:2px 0 4px;font-weight:700;">
+      {% if result.qwen and not result.qwen.is_live_ollama %}
+        {{ 'Terindikasi Phishing (Klasifikasi ML)' if result.prediction == 'phishing' else 'Terindikasi Aman (Klasifikasi ML)' }}
+      {% else %}
+        {{ result.status_text or ('Terindikasi Phishing' if result.prediction == 'phishing' else 'Terindikasi Aman') }}
+      {% endif %}
+    </h2>
     <div style="max-height:48px;overflow-y:auto;font-family:monospace;font-size:11.5px;color:#183b32;word-break:break-all;line-height:1.4;">
       {{ result.url }}
     </div>
     {% if result.qwen and not result.qwen.is_live_ollama %}
     <div style="margin-top:6px;font-size:11px;color:#854d0e;display:flex;align-items:center;gap:5px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>Analis AI (Qwen 2.5) sedang offline. Hasil analisis diperoleh dari model Supervised ML terkalibrasi.</span>
+      <span>Analis AI (Qwen 2.5) sedang offline. Hasil analisis diperoleh mandiri dari model Supervised ML terkalibrasi.</span>
     </div>
     {% endif %}
   </div>
@@ -53,9 +63,19 @@
 <div class="panel" style="margin-bottom:20px;padding:20px 22px;border:1px solid #d1e7dd;background:#ffffff;border-radius:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;border-bottom:1px solid #edf4f0;padding-bottom:12px;">
     <div>
-      <b style="font-size:13.5px;color:#111827;display:block;">Evaluasi Analis AI Mendalam</b>
+      <b style="font-size:13.5px;color:#111827;display:block;">
+        {% if result.qwen and result.qwen.is_live_ollama %}
+          Evaluasi Analis AI Kontekstual (Qwen 2.5 7B)
+        {% else %}
+          Status Evaluasi Analis AI Kontekstual
+        {% endif %}
+      </b>
       <span style="font-size:11px;color:#6b7280;margin-top:2px;display:block;">
-        Verifikasi Kontekstual: <span style="font-weight:700;color:{{ '#b91c1c' if result.qwen and result.qwen.second_verdict == 'phishing' else '#15803d' }};text-transform:uppercase;">{{ 'Terindikasi Phishing' if result.qwen and result.qwen.second_verdict == 'phishing' else 'Terindikasi Aman' }}</span>
+        {% if result.qwen and result.qwen.is_live_ollama %}
+          Verifikasi Kontekstual: <span style="font-weight:700;color:{{ '#b91c1c' if result.qwen and result.qwen.second_verdict == 'phishing' else '#15803d' }};text-transform:uppercase;">{{ 'Terindikasi Phishing' if result.qwen and result.qwen.second_verdict == 'phishing' else 'Terindikasi Aman' }}</span>
+        {% else %}
+          Mode Analisis: <span style="font-weight:700;color:#92400e;text-transform:uppercase;">Mandiri (Supervised ML)</span>
+        {% endif %}
       </span>
     </div>
     <div>
@@ -76,13 +96,21 @@
   <!-- Catatan Evaluasi Qwen (Clean Editorial Quote) -->
   <div style="background:#f8faf9;border-left:3px solid #1b4d3e;padding:14px 16px;border-radius:4px;font-size:13px;line-height:1.6;color:#1f2937;margin-bottom:14px;">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;color:#1b4d3e;margin-bottom:4px;">
-      Temuan Analisis Kontekstual
+      {% if result.qwen and result.qwen.is_live_ollama %}
+        Temuan Analisis Kontekstual
+      {% else %}
+        Catatan Operasional Sistem
+      {% endif %}
     </div>
-    "{{ result.qwen.explanation if result.qwen else 'Pemeriksaan konteks independen mengonfirmasi karakteristik target konsisten dengan pola ancaman yang terdeteksi.' }}"
+    {% if result.qwen and result.qwen.is_live_ollama %}
+      "{{ result.qwen.explanation }}"
+    {% else %}
+      "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning berdasarkan pola statistik fitur URL dan teks target."
+    {% endif %}
   </div>
 
   <!-- Parameter Rekayasa Sosial (Minimalist Data Strip) -->
-  {% if result.qwen and result.qwen.social_engineering %}
+  {% if result.qwen and result.qwen.is_live_ollama and result.qwen.social_engineering %}
   <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px;margin-bottom:14px;background:#fafcfb;padding:10px 12px;border:1px solid #edf4f0;border-radius:6px;">
     <div>
       <span style="color:#6b7280;font-size:10px;display:block;">Urgensi Psikologis:</span>
