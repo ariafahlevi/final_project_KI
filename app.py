@@ -2,6 +2,8 @@ import os
 import json
 import time
 import secrets
+import hmac
+import hashlib
 import datetime
 import urllib.parse
 from pathlib import Path
@@ -16,6 +18,15 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "phisguard-security-key-2026")
+
+@app.before_request
+def ensure_canonical_host():
+    """Menyamakan host lokal localhost:5000 ke 127.0.0.1:5000 agar cookie sesi & OAuth selalu sinkron."""
+    host = request.host.lower()
+    if host.startswith("localhost:"):
+        port = host.split(":", 1)[1] if ":" in host else "5000"
+        path_query = request.full_path if request.query_string else request.path
+        return redirect(f"http://127.0.0.1:{port}{path_query}", code=302)
 
 # Pre-warm ML models at startup to prevent cold-start latency & avoid Gateway Timeout
 try:
@@ -685,15 +696,39 @@ def _get_clean_redirect_uri():
         return f"https://{base_host}/auth/google/callback"
         
     uri = url_for("google_auth_callback", _external=True)
-    # Google OAuth sensitif terhadap perbedaan hostname:
-    # Jika diakses lewat localhost:5000, ubah ke 127.0.0.1:5000 agar selalu cocok dengan GCP Console
     if "localhost:5000" in uri:
         uri = uri.replace("localhost:5000", "127.0.0.1:5000")
     return uri
 
+def _generate_oauth_state(is_popup=False):
+    """Menghasilkan signed state token dengan HMAC untuk mencegah CSRF secara stateless tanpa bergantung pada cookie."""
+    ts = str(int(time.time()))
+    popup_flag = "1" if is_popup else "0"
+    payload = f"{ts}:{popup_flag}"
+    sig = hmac.new(app.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
+
+def _verify_oauth_state(state_token):
+    """Memverifikasi keaslian signed state token dan mengekstrak flag popup."""
+    if not state_token:
+        return False, False
+    try:
+        parts = state_token.split(":")
+        if len(parts) != 3:
+            return False, False
+        ts, popup_flag, sig = parts
+        expected_sig = hmac.new(app.secret_key.encode("utf-8"), f"{ts}:{popup_flag}".encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected_sig):
+            return False, False
+        if time.time() - int(ts) > 900:  # 15 menit batas kedaluwarsa
+            return False, False
+        return True, popup_flag == "1"
+    except Exception:
+        return False, False
+
 @app.get("/auth/google")
 def google_auth_login():
-    """Menginisialisasi alur otentikasi Google OAuth 2.0 dengan proteksi CSRF state."""
+    """Menginisialisasi alur otentikasi Google OAuth 2.0 dengan signed CSRF state."""
     is_popup = request.args.get("popup") == "1"
     session["oauth_is_popup"] = is_popup
 
@@ -703,7 +738,7 @@ def google_auth_login():
         return redirect(url_for("scanner", tab="email", error="google_not_configured"))
     
     redirect_uri = _get_clean_redirect_uri()
-    state = secrets.token_urlsafe(32)
+    state = _generate_oauth_state(is_popup=is_popup)
     session["oauth_state"] = state
     
     # Izinkan HTTP untuk pengujian lokal
@@ -721,15 +756,21 @@ def google_auth_login():
 @app.get("/auth/google/callback")
 def google_auth_callback():
     """Menerima redirect dari Google setelah pengguna memberikan izin akses."""
-    stored_state = session.get("oauth_state")
     returned_state = request.args.get("state")
-    is_popup = session.get("oauth_is_popup", False)
+    is_valid_state, is_popup = _verify_oauth_state(returned_state)
     
+    # Fallback cek session biasa jika token tidak berformat signed HMAC
+    if not is_valid_state:
+        stored_state = session.get("oauth_state")
+        if stored_state and stored_state == returned_state:
+            is_valid_state = True
+            is_popup = session.get("oauth_is_popup", False)
+
     # Validasi CSRF Token
-    if not stored_state or stored_state != returned_state:
-        print("[AUTH ERROR] Invalid OAuth state parameter. Possible CSRF attack.")
+    if not is_valid_state:
+        print(f"[AUTH ERROR] Invalid OAuth state parameter: {returned_state}. Possible CSRF attack or expired.")
         if is_popup:
-            return render_template("oauth_error_popup.html", error_message="Validasi keamanan CSRF state gagal. Silakan ulangi.")
+            return render_template("oauth_error_popup.html", error_message="Validasi keamanan CSRF state gagal atau kedaluwarsa. Silakan ulangi.")
         return redirect(url_for("scanner", tab="email", error="invalid_state"))
         
     code = request.args.get("code")
@@ -743,12 +784,13 @@ def google_auth_callback():
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
     try:
-        creds_dict = gmail_service.exchange_code_for_token_dict(code, redirect_uri, state=stored_state)
+        creds_dict = gmail_service.exchange_code_for_token_dict(code, redirect_uri, state=returned_state)
         user_email = gmail_service.get_user_email(creds_dict)
         
         session["google_creds"] = creds_dict
         session["google_user"] = user_email
         session.pop("oauth_state", None)
+        session.pop("oauth_is_popup", None)
         
         if is_popup:
             return render_template("oauth_success_popup.html", user_email=user_email)
