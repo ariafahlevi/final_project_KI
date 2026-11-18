@@ -82,7 +82,7 @@
               </button>
               <a href="{{ url_for('google_auth_logout') }}" style="color:#94a3b8;font-size:11px;text-decoration:none;padding:2px 4px;" title="Putus Akun Google">Putus</a>
             {% else %}
-              <a href="{{ url_for('google_auth_login') }}" class="btn" style="background:#ffffff;color:#374151;border:1px solid #cbd5e1;font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <button type="button" id="btnConnectGmail" class="btn" onclick="openGoogleLoginPopup()" style="background:#ffffff;color:#374151;border:1px solid #cbd5e1;font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.05);cursor:pointer;">
                 <svg width="13" height="13" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -90,7 +90,7 @@
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                 </svg>
                 <span>Hubungkan Gmail</span>
-              </a>
+              </button>
               <button type="button" id="btnOpenDemo" class="btn" style="background:#f8fafc;color:#475569;border:1px solid #cbd5e1;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;" title="Uji coba kotak masuk simulasi tanpa Google Cloud Console">
                 Inbox Demo
               </button>
@@ -263,6 +263,59 @@ document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("tab") === "email" || "{{ active_tab }}" === "email") {
     switchToEmail();
+  }
+
+  // ==========================================
+  // GOOGLE OAUTH POPUP WINDOW HANDLER
+  // ==========================================
+  window.openGoogleLoginPopup = function() {
+    const width = 520;
+    const height = 660;
+    const left = Math.max(0, (window.screen.width - width) / 2);
+    const top = Math.max(0, (window.screen.height - height) / 2);
+
+    const popup = window.open(
+      "/auth/google?popup=1",
+      "GoogleAuthPopup",
+      `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
+    );
+
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      // Jika browser memblokir popup, gunakan redirect standar
+      window.location.href = "/auth/google";
+      return;
+    }
+
+    // Polling per detik untuk mengecek apakah popup ditutup oleh user
+    const pollTimer = setInterval(async () => {
+      if (popup.closed) {
+        clearInterval(pollTimer);
+        // Cek status ke backend apakah sudah berhasil login
+        try {
+          const res = await fetch("/api/gmail/status");
+          const data = await res.json();
+          if (data.connected) {
+            window.location.href = "/scan?tab=email&gmail=connected";
+          }
+        } catch (e) {}
+      }
+    }, 1000);
+  };
+
+  // Menerima pesan postMessage saat popup otentikasi berhasil
+  window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "GMAIL_AUTH_SUCCESS") {
+      window.location.href = "/scan?tab=email&gmail=connected";
+    } else if (event.data && event.data.type === "GMAIL_AUTH_ERROR") {
+      alert("Otentikasi Google: " + event.data.error);
+    }
+  });
+
+  // Jika baru selesai terhubung, langsung munculkan modal Inbox otomatis
+  if (params.get("gmail") === "connected") {
+    setTimeout(() => {
+      openGmailModal(false);
+    }, 350);
   }
 
   // ==========================================

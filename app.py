@@ -678,16 +678,31 @@ def api_scan():
 # GOOGLE OAUTH 2.0 & GMAIL API ENDPOINTS
 # ==========================================
 
+def _get_clean_redirect_uri():
+    """Menghasilkan URI callback yang konsisten untuk Google OAuth (127.0.0.1 vs localhost & HTTPS di Render)."""
+    if request.headers.get("X-Forwarded-Proto") == "https":
+        base_host = request.headers.get("X-Forwarded-Host") or request.host
+        return f"https://{base_host}/auth/google/callback"
+        
+    uri = url_for("google_auth_callback", _external=True)
+    # Google OAuth sensitif terhadap perbedaan hostname:
+    # Jika diakses lewat localhost:5000, ubah ke 127.0.0.1:5000 agar selalu cocok dengan GCP Console
+    if "localhost:5000" in uri:
+        uri = uri.replace("localhost:5000", "127.0.0.1:5000")
+    return uri
+
 @app.get("/auth/google")
 def google_auth_login():
     """Menginisialisasi alur otentikasi Google OAuth 2.0 dengan proteksi CSRF state."""
+    is_popup = request.args.get("popup") == "1"
+    session["oauth_is_popup"] = is_popup
+
     if not gmail_service.is_google_configured():
+        if is_popup:
+            return render_template("oauth_error_popup.html", error_message="Kredensial GOOGLE_CLIENT_ID / SECRET belum diisi di file .env server.")
         return redirect(url_for("scanner", tab="email", error="google_not_configured"))
     
-    redirect_uri = url_for("google_auth_callback", _external=True)
-    if request.headers.get("X-Forwarded-Proto") == "https" and redirect_uri.startswith("http://"):
-        redirect_uri = redirect_uri.replace("http://", "https://", 1)
-
+    redirect_uri = _get_clean_redirect_uri()
     state = secrets.token_urlsafe(32)
     session["oauth_state"] = state
     
@@ -699,6 +714,8 @@ def google_auth_login():
         return redirect(auth_url)
     except Exception as e:
         print(f"[AUTH ERROR] Failed to start Google OAuth: {e}")
+        if is_popup:
+            return render_template("oauth_error_popup.html", error_message=f"Gagal memulai otentikasi Google: {str(e)}")
         return redirect(url_for("scanner", tab="email", error="oauth_init_failed"))
 
 @app.get("/auth/google/callback")
@@ -706,21 +723,23 @@ def google_auth_callback():
     """Menerima redirect dari Google setelah pengguna memberikan izin akses."""
     stored_state = session.get("oauth_state")
     returned_state = request.args.get("state")
+    is_popup = session.get("oauth_is_popup", False)
     
     # Validasi CSRF Token
     if not stored_state or stored_state != returned_state:
         print("[AUTH ERROR] Invalid OAuth state parameter. Possible CSRF attack.")
+        if is_popup:
+            return render_template("oauth_error_popup.html", error_message="Validasi keamanan CSRF state gagal. Silakan ulangi.")
         return redirect(url_for("scanner", tab="email", error="invalid_state"))
         
     code = request.args.get("code")
     if not code:
         error_msg = request.args.get("error", "access_denied")
+        if is_popup:
+            return render_template("oauth_error_popup.html", error_message="Izin akses tidak diberikan oleh pengguna atau dibatalkan.")
         return redirect(url_for("scanner", tab="email", error=error_msg))
 
-    redirect_uri = url_for("google_auth_callback", _external=True)
-    if request.headers.get("X-Forwarded-Proto") == "https" and redirect_uri.startswith("http://"):
-        redirect_uri = redirect_uri.replace("http://", "https://", 1)
-
+    redirect_uri = _get_clean_redirect_uri()
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
     try:
@@ -731,9 +750,14 @@ def google_auth_callback():
         session["google_user"] = user_email
         session.pop("oauth_state", None)
         
+        if is_popup:
+            return render_template("oauth_success_popup.html", user_email=user_email)
+
         return redirect(url_for("scanner", tab="email", gmail="connected"))
     except Exception as e:
         print(f"[AUTH ERROR] Token exchange failed: {e}")
+        if is_popup:
+            return render_template("oauth_error_popup.html", error_message=f"Gagal menukar token akses: {str(e)}")
         return redirect(url_for("scanner", tab="email", error="token_exchange_failed"))
 
 @app.get("/auth/google/logout")
