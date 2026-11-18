@@ -24,11 +24,14 @@ MODEL_DIR = BASE_DIR / "models"
 def get_app_config():
     config_file = BASE_DIR / "config.json"
     defaults = {
+        "llm_provider": "ollama",
         "ollama_url": "https://finn-unfecundated-lucienne.ngrok-free.dev/api/generate",
         "model_name": "qwen2.5:7b",
+        "api_key": "",
         "sensitivity": "normal",
         "qwen_mode": "always",
-        "llm_enabled": True
+        "llm_enabled": True,
+        "deep_inspection": True
     }
     if config_file.exists():
         try:
@@ -43,7 +46,9 @@ def get_ollama_config():
     cfg = get_app_config()
     ollama_url = os.environ.get("OLLAMA_URL", cfg.get("ollama_url"))
     model_name = os.environ.get("OLLAMA_MODEL", cfg.get("model_name"))
-    return ollama_url, model_name
+    provider = cfg.get("llm_provider", "ollama")
+    api_key = os.environ.get("LLM_API_KEY", cfg.get("api_key", ""))
+    return ollama_url, model_name, provider, api_key
 
 def get_threshold():
     """Mengambil ambang batas keputusan klasifikasi (Decision Threshold)."""
@@ -276,8 +281,9 @@ def extract_single_url(url: str) -> dict:
 
 def inspect_live_url(url: str) -> dict:
     """
-    Membuka dan memeriksa konten langsung dari target URL (Web Content Inspection).
-    Mengekstrak judul halaman, kode respons HTTP, indikasi form login, dan Cloudflare/WAF phishing block.
+    Membuka dan memeriksa konten langsung dari target URL (Deep Forensic Web Content Inspection).
+    Mengikuti pengalihan (redirects), mengekstrak judul, meta deskripsi, struktur form login & password,
+    serta sampel teks konten halaman untuk dianalisis oleh analis AI / LLM.
     """
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -322,44 +328,86 @@ def inspect_live_url(url: str) -> dict:
         "brand_spoofed_name": brand_spoofed.upper() if brand_spoofed else None,
         "brand_spoofing_alert": f"PERINGATAN ANOMALI: Nama brand '{brand_spoofed.upper()}' ditiru pada domain tidak resmi '{root_domain}'. Ini adalah indikasi kuat Brand Impersonation / Phishing!" if brand_spoofed else "Normal / Tidak terindikasi peniruan brand",
         "http_status": "Belum Terhubung",
+        "final_url": url_str,
+        "redirect_detected": False,
         "page_title": "Tidak dapat diambil",
+        "meta_description": "",
         "has_password_field": False,
         "has_login_form": False,
+        "has_otp_field": False,
+        "forms_detected": [],
         "waf_phishing_block": False,
-        "page_snippet": ""
+        "page_snippet": "",
+        "live_text_sample": ""
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 PhisGuard-Bot/2.1",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
 
     try:
-        r = requests.get(url_str, timeout=2.0, headers=headers, verify=False, allow_redirects=True, stream=True)
+        r = requests.get(url_str, timeout=3.5, headers=headers, verify=False, allow_redirects=True, stream=True)
         inspection["http_status"] = f"HTTP {r.status_code}"
+        inspection["final_url"] = r.url
+        if r.url and r.url.rstrip('/') != url_str.rstrip('/'):
+            inspection["redirect_detected"] = True
+
+        raw_chunk = b""
+        for chunk in r.iter_content(chunk_size=16384):
+            raw_chunk += chunk
+            if len(raw_chunk) >= 32768:
+                break
         
-        # Baca 16KB pertama untuk ekstraksi title & form secara cepat tanpa download aset besar
-        raw_chunk = next(r.iter_content(chunk_size=16384), b'')
         text_chunk = raw_chunk.decode('utf-8', errors='ignore')
         
+        # 1. Judul Halaman
         m_title = re.search(r'<title[^>]*>(.*?)</title>', text_chunk, re.IGNORECASE | re.DOTALL)
         if m_title:
             title_text = re.sub(r'\s+', ' ', m_title.group(1)).strip()
             inspection["page_title"] = title_text
-            if any(kw in title_text.lower() for kw in ['phish', 'suspicious', 'malicious', 'deceptive', 'danger', 'block', 'cloudflare']):
+            if any(kw in title_text.lower() for kw in ['phish', 'suspicious', 'malicious', 'deceptive', 'danger', 'block', 'cloudflare', 'redirection']):
                 inspection["waf_phishing_block"] = True
 
-        if re.search(r'type=[\'"]password[\'"]', text_chunk, re.IGNORECASE):
-            inspection["has_password_field"] = True
-        if re.search(r'<form[^>]*>', text_chunk, re.IGNORECASE) and any(kw in text_chunk.lower() for kw in ['login', 'signin', 'sign-in', 'masuk', 'sandi', 'password', 'pin']):
+        # 2. Meta Deskripsi
+        m_desc = re.search(r'<meta[^>]*name=[\'"]description[\'"][^>]*content=[\'"]([^\'"]*)[\'"]', text_chunk, re.IGNORECASE)
+        if m_desc:
+            inspection["meta_description"] = m_desc.group(1).strip()
+
+        # 3. Form & Input Credential Harvesting Deep Inspection
+        form_matches = re.findall(r'<form\b([^>]*)>([\s\S]*?)</form>', text_chunk, re.IGNORECASE)
+        forms_info = []
+        for attrs, content in form_matches[:3]:
+            act_m = re.search(r'action=[\'"]([^\'"]*)[\'"]', attrs, re.IGNORECASE)
+            action = act_m.group(1) if act_m else "self"
+            has_pwd = bool(re.search(r'type=[\'"]password[\'"]', content, re.IGNORECASE))
+            has_otp = bool(re.search(r'(otp|pin|token|kode|cvv)', content, re.IGNORECASE))
+            btn_m = re.search(r'<button[^>]*>([^<]+)</button>', content, re.IGNORECASE) or re.search(r'value=[\'"]([^\'"]+)[\'"]', content, re.IGNORECASE)
+            submit_label = btn_m.group(1).strip() if btn_m else "Submit"
+            forms_info.append({
+                "action": action,
+                "has_password": has_pwd,
+                "has_otp_or_pin": has_otp,
+                "submit_label": submit_label
+            })
+            if has_pwd:
+                inspection["has_password_field"] = True
+            if has_otp:
+                inspection["has_otp_field"] = True
+
+        inspection["forms_detected"] = forms_info
+        if inspection["has_password_field"] or re.search(r'<form[^>]*>', text_chunk, re.IGNORECASE) and any(kw in text_chunk.lower() for kw in ['login', 'signin', 'sign-in', 'masuk', 'sandi', 'password', 'pin']):
             inspection["has_login_form"] = True
 
-        clean_body = re.sub(r'<[^>]+>', ' ', text_chunk)
+        # 4. Clean Body Text Extraction
+        clean_body = re.sub(r'<(script|style|svg|noscript)[^>]*>[\s\S]*?</\1>', ' ', text_chunk, flags=re.IGNORECASE)
+        clean_body = re.sub(r'<[^>]+>', ' ', clean_body)
         clean_body = re.sub(r'\s+', ' ', clean_body).strip()
         inspection["page_snippet"] = clean_body[:200] if clean_body else "Halaman kosong"
+        inspection["live_text_sample"] = clean_body[:600] if clean_body else ""
     except requests.exceptions.Timeout:
-        inspection["http_status"] = "Koneksi Timeout (>2.0s)"
-        inspection["page_title"] = "Server tidak merespons dalam batas waktu"
+        inspection["http_status"] = "Koneksi Timeout (>3.5s)"
+        inspection["page_title"] = "Server target tidak merespons"
     except Exception as e:
         inspection["http_status"] = f"Koneksi Gagal ({type(e).__name__})"
         inspection["page_title"] = "Tidak dapat dijangkau"
@@ -721,25 +769,107 @@ def _parse_qwen_json(raw_response: str) -> dict:
 
     return fallback
 
-def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> dict:
+def call_external_llm(ollama_url: str, model_name: str, prompt: str, provider: str = "ollama", api_key: str = "", timeout: int = 45) -> tuple:
+    """
+    Panggilan serbaguna ke model AI / LLM:
+    - Provider 'ollama': Endpoint lokal / tunneling Ngrok (/api/generate)
+    - Provider 'openai_compatible': Endpoint cloud (Groq, OpenRouter, OpenAI, DeepSeek)
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        "User-Agent": "PhisGuard-Engine/2.1"
+    }
+
+    try:
+        if provider == "openai_compatible":
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key.strip()}"
+            payload = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": "Kamu adalah analis keamanan siber independen dalam sistem pertahanan hybrid PhisGuard. Balas HANYA format JSON valid tanpa teks markdown pembuka/penutup."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"}
+            }
+            res = requests.post(ollama_url, json=payload, headers=headers, timeout=timeout)
+            if res.status_code == 200:
+                data = res.json()
+                choices = data.get("choices", [])
+                content = choices[0].get("message", {}).get("content", "{}") if choices else "{}"
+                parsed = _parse_qwen_json(content)
+                return parsed, True, None
+            else:
+                return {}, False, f"Server API merespons HTTP {res.status_code}: {res.text[:120]}"
+        else:
+            # Default: Ollama generate format
+            payload = {
+                "model": model_name,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "num_predict": 256,
+                    "temperature": 0.1,
+                    "num_ctx": 1536
+                }
+            }
+            res = requests.post(ollama_url, json=payload, headers=headers, timeout=timeout)
+            if res.status_code == 200:
+                data = res.json()
+                raw_response = data.get("response", "{}")
+                parsed = _parse_qwen_json(raw_response)
+                return parsed, True, None
+            else:
+                return {}, False, f"Server Ollama HTTP {res.status_code}"
+    except requests.exceptions.Timeout:
+        return {}, False, f"Koneksi timeout (latensi tunnel/server >{timeout} detik)"
+    except Exception as e:
+        return {}, False, f"Koneksi gagal ({str(e)})"
+
+def get_qwen_verification(input_data: str, input_type: str, ml_result: dict, force_mode: str = None) -> dict:
     cfg = get_app_config()
-    llm_enabled = cfg.get("llm_enabled", True)
-    ollama_url, model_name = get_ollama_config()
+    ollama_url, model_name, provider, api_key = get_ollama_config()
+    
+    # Mode selection: prioritaskan force_mode dari form Scan jika ada
+    if force_mode == "mandiri":
+        llm_enabled = False
+    elif force_mode == "hybrid":
+        llm_enabled = True
+    else:
+        llm_enabled = cfg.get("llm_enabled", True)
+
     features = ml_result.get("features", {})
     ml_pred = ml_result.get("prediction", "legitimate")
     ml_conf = ml_result.get("confidence", 0.0)
     inspection_meta = ml_result.get("live_inspection", {})
 
-    # 1. Evidence Bundle (Konteks Bukti Terstruktur sesuai Bab 6 & 11)
+    # 1. Evidence Bundle Kaya Fitur (Konteks Bukti Terstruktur & Deep Web Content)
+    live_web_data = {
+        "page_title": inspection_meta.get("page_title"),
+        "http_status": inspection_meta.get("http_status"),
+        "final_url": inspection_meta.get("final_url"),
+        "redirect_detected": inspection_meta.get("redirect_detected", False),
+        "brand_spoofing_detected": inspection_meta.get("brand_spoofing_detected", False),
+        "brand_spoofed_name": inspection_meta.get("brand_spoofed_name"),
+        "has_login_form": inspection_meta.get("has_login_form", False),
+        "has_password_field": inspection_meta.get("has_password_field", False),
+        "has_otp_field": inspection_meta.get("has_otp_field", False),
+        "forms_detected": inspection_meta.get("forms_detected", []),
+        "live_webpage_content_preview": inspection_meta.get("live_text_sample", "")[:500]
+    }
+
     evidence_bundle = {
         "target": input_data,
         "target_type": input_type,
         "extracted_features": features,
-        "live_web_inspection": inspection_meta,
+        "live_web_inspection": live_web_data,
         "detection_stage": "Independent Context Assessment (Blind Assessment)"
     }
 
-    # JIKA FITUR LLM DINONAKTIFKAN DI PENGATURAN (KONDISI 3: MODE MANDIRI MUTLAK):
+    # JIKA FITUR LLM DINONAKTIFKAN (KONDISI 3: MODE MANDIRI MUTLAK):
     # Langsung kembalikan hasil Mode Mandiri instan (0ms latency, tanpa panggil jaringan)
     if not llm_enabled:
         brand_alert = inspection_meta.get("brand_spoofing_detected", False)
@@ -754,14 +884,14 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
             second_verdict = "legitimate"
 
         status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)" if second_verdict == "phishing" else "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
-        treatment = "Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning (Mode Mandiri aktif di Pengaturan)."
-        explanation = "Mode Mandiri aktif di Pengaturan. Keputusan keamanan dihasilkan 100% mandiri oleh model Supervised Machine Learning tanpa ketergantungan pada LLM."
+        treatment = "Pemeriksaan diselesaikan secara mandiri oleh model Supervised Machine Learning (Mode Mandiri dipilih)."
+        explanation = "Mode Mandiri aktif saat pemindaian. Keputusan keamanan dihasilkan 100% mandiri oleh model Supervised Machine Learning tanpa ketergantungan pada LLM."
         
         return {
             "source": "Supervised ML (Mode Mandiri Murni)",
             "is_live_ollama": False,
             "engine_mode": "single_ml",
-            "ollama_error_detail": "Layanan Analis AI (LLM) dinonaktifkan di Pengaturan. Sistem beroperasi penuh di Mode Mandiri.",
+            "ollama_error_detail": "Layanan Analis AI (LLM) dinonaktifkan. Sistem beroperasi penuh di Mode Mandiri.",
             "model_name": model_name,
             "second_verdict": second_verdict,
             "status_text": status_text,
@@ -775,26 +905,31 @@ def get_qwen_verification(input_data: str, input_type: str, ml_result: dict) -> 
             "evidence_bundle": evidence_bundle
         }
 
-    # 2. Prompt Analisis Keamanan Siber Efisien & Presisi (RSCIT Framework)
-    prompt = f"""Kamu adalah analis keamanan siber independen dalam sistem pertahanan hybrid.
-Target ({input_type.upper()}): {input_data[:750] if len(input_data) > 750 else input_data}
-Bukti Fitur: {json.dumps(evidence_bundle, ensure_ascii=False)}
+    # 2. Prompt Analisis Keamanan Siber Mendalam
+    prompt = f"""Kamu adalah analis keamanan siber independen dalam sistem pertahanan hybrid PhisGuard.
+Periksa target ({input_type.upper()}) dan seluruh bukti ekstraksi konten berikut secara mendalam:
+
+TARGET:
+{input_data[:850]}
+
+BUKTI TEKNIS & HASIL EKSTRAKSI KONTEN HALAMAN WEB:
+{json.dumps(evidence_bundle, ensure_ascii=False, indent=2)}
 
 Pedoman Evaluasi:
-1. Subdomain Spoofing (nama brand ditiru pada root domain asing) = 'phishing'.
-2. Domain institusi resmi (.ac.id, .go.id, .edu) tanpa blokir WAF = 'legitimate'.
-3. Pembaruan Persyaratan Layanan resmi tanpa paksaan pemblokiran = 'legitimate'.
-4. Jika terdapat tautan phishing di dalam email = 'phishing'.
+1. Tautan yang membuka halaman peniruan login bank/layanan (meminta password, PIN, atau kartu) pada domain tidak resmi = 'phishing'.
+2. Subdomain Spoofing (nama brand ditiru pada root domain asing) = 'phishing'.
+3. Domain institusi resmi (.ac.id, .go.id, .edu) atau platform terdaftar sah tanpa form jebakan = 'legitimate'.
+4. Tautan di dalam email yang mengarah ke form kredensial asing = 'phishing'.
 
-Balas HANYA format JSON valid:
+Balas HANYA format JSON valid tanpa teks pembuka/penutup:
 {{
   "second_verdict": "phishing | legitimate | inconclusive",
   "urgency_level": "Tinggi | Sedang | Rendah",
   "impersonation": "Nama entitas atau 'Tidak Terindikasi'",
-  "credential_harvesting": false,
-  "potential_objective": "Dugaan motif (singkat)",
-  "explanation": "Penjelasan 1-2 kalimat lugas tanpa emosional",
-  "indicators": ["indikator 1", "indikator 2"]
+  "credential_harvesting": true/false,
+  "potential_objective": "Dugaan motif (singkat & spesifik)",
+  "explanation": "Penjelasan mendalam 2-3 kalimat mengenai temuan isi pesan/web",
+  "indicators": ["indikator 1", "indikator 2", "indikator 3"]
 }}"""
 
     second_verdict = None
@@ -804,52 +939,23 @@ Balas HANYA format JSON valid:
     is_live_ollama = False
     ollama_error_detail = None
 
-    try:
-        headers = {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-            "User-Agent": "PhisGuard-Engine/2.1"
-        }
-        res = requests.post(
-            ollama_url,
-            json={
-                "model": model_name,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "num_predict": 256,
-                    "temperature": 0.1,
-                    "num_ctx": 1536
-                }
-            },
-            headers=headers,
-            timeout=45
-        )
-        if res.status_code == 200:
-            data = res.json()
-            raw_response = data.get("response", "{}")
-            parsed = _parse_qwen_json(raw_response)
+    parsed, is_live_ollama, ollama_error_detail = call_external_llm(
+        ollama_url, model_name, prompt, provider=provider, api_key=api_key, timeout=45
+    )
+
+    if is_live_ollama and parsed:
+        second_verdict = str(parsed.get("second_verdict", "inconclusive")).strip().lower()
+        if second_verdict not in ["phishing", "legitimate", "inconclusive"]:
+            second_verdict = "inconclusive"
             
-            second_verdict = str(parsed.get("second_verdict", "inconclusive")).strip().lower()
-            if second_verdict not in ["phishing", "legitimate", "inconclusive"]:
-                second_verdict = "inconclusive"
-                
-            explanation = parsed.get("explanation", "").strip()
-            indicators = parsed.get("indicators", [])
-            soc_eng = {
-                "urgency_level": parsed.get("urgency_level", "Sedang"),
-                "impersonation": parsed.get("impersonation", "Tidak Terindikasi"),
-                "credential_harvesting": bool(parsed.get("credential_harvesting", False)),
-                "potential_objective": parsed.get("potential_objective", "Tidak teridentifikasi")
-            }
-            is_live_ollama = True
-        else:
-            ollama_error_detail = f"Server Ollama HTTP {res.status_code}"
-    except requests.exceptions.Timeout:
-        ollama_error_detail = "Koneksi dialihkan ke mesin analis internal (latensi tunnel >45 detik)"
-    except Exception as e:
-        ollama_error_detail = f"Koneksi dialihkan ke mesin analis internal ({str(e)})"
+        explanation = parsed.get("explanation", "").strip()
+        indicators = parsed.get("indicators", [])
+        soc_eng = {
+            "urgency_level": parsed.get("urgency_level", "Sedang"),
+            "impersonation": parsed.get("impersonation", "Tidak Terindikasi"),
+            "credential_harvesting": bool(parsed.get("credential_harvesting", False)),
+            "potential_objective": parsed.get("potential_objective", "Tidak teridentifikasi")
+        }
 
     # Logika Pengamanan & Rekonsiliasi Jujur
     brand_alert = inspection_meta.get("brand_spoofing_detected", False)
@@ -964,7 +1070,7 @@ Balas HANYA format JSON valid:
         soc_eng = {}
 
     return {
-        "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else ("Supervised ML (Dialihkan ke Mode Mandiri - LLM Offline)" if llm_enabled else "Supervised ML (Mode Mandiri Murni)"),
+        "source": f"{model_name} (AI Live)" if is_live_ollama else ("Supervised ML (Dialihkan ke Mode Mandiri - LLM Offline)" if llm_enabled else "Supervised ML (Mode Mandiri Murni)"),
         "is_live_ollama": is_live_ollama,
         "engine_mode": "hybrid_consensus" if is_live_ollama else ("fallback_mandiri" if llm_enabled else "single_ml"),
         "ollama_error_detail": ollama_error_detail,

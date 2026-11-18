@@ -3,18 +3,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
   if (toggle && sidebar) toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
+  // Dynamic Model Name State
+  let globalModelName = "Qwen 2.5 7B";
+
   // Status Sistem Keamanan (User-Friendly, Non-Developer)
   const topBadge = document.getElementById("topEngineBadge");
   const topDot = document.getElementById("topEngineDot");
   const topText = document.getElementById("topEngineText");
+  const badgeModelName = document.getElementById("badgeModelName");
 
   async function updateTopEngineBadge() {
-    if (!topBadge || !topDot || !topText) return;
     try {
       const res = await fetch("/api/ollama-status");
       const data = await res.json();
+      if (data.model_name) {
+        globalModelName = data.model_name;
+        document.querySelectorAll(".dyn-model-name").forEach(el => el.textContent = globalModelName);
+        if (badgeModelName) badgeModelName.textContent = `${globalModelName} ${data.status === 'online' ? 'Siap' : 'Offline'}`;
+      }
+
+      if (!topBadge || !topDot || !topText) return;
+
       if (!data.llm_enabled) {
-        // KONDISI 3: MODE MANDIRI MUTLAK DIPILIH PENGGUNA
+        // MODE MANDIRI MUTLAK DIPILIH PENGGUNA
         topDot.style.background = "#64748b";
         topDot.style.boxShadow = "0 0 0 2px rgba(100,116,139,0.25)";
         topText.textContent = "Mode Mandiri (ML)";
@@ -23,16 +34,16 @@ document.addEventListener("DOMContentLoaded", () => {
         topBadge.style.background = "#f1f5f9";
         topBadge.style.color = "#475569";
       } else if (data.status === "online") {
-        // KONDISI 2: MODE HYBRID AKTIF & LLM LIVE MERESPONS
+        // MODE HYBRID AKTIF & LLM LIVE MERESPONS
         topDot.style.background = "#10b981";
         topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
         topText.textContent = "Proteksi Hybrid Aktif";
-        topBadge.title = "Konsensus Dual-Engine Siap: Supervised ML + Qwen 2.5 7B Aktif.";
+        topBadge.title = `Konsensus Dual-Engine Siap: Supervised ML + ${globalModelName} Aktif.`;
         topBadge.style.borderColor = "#a7f3d0";
         topBadge.style.background = "#ecfdf5";
         topBadge.style.color = "#065f46";
       } else {
-        // KONDISI 1: MODE HYBRID DIPILIH TAPI LLM MATI/OFFLINE -> FALLBACK MANDIRI
+        // MODE HYBRID AKTIF TAPI LLM MATI/OFFLINE -> FALLBACK MANDIRI
         topDot.style.background = "#f59e0b";
         topDot.style.boxShadow = "0 0 0 2px rgba(245,158,11,0.25)";
         topText.textContent = "Mandiri (LLM Offline)";
@@ -44,24 +55,80 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const hybridNotice = document.getElementById("scannerHybridNotice");
       if (hybridNotice) {
-        if (data.llm_enabled && data.status !== "online") {
+        const modeHybridRadio = document.getElementById("scanModeHybrid");
+        if (modeHybridRadio && modeHybridRadio.checked && data.status !== "online") {
           hybridNotice.style.display = "block";
         } else {
           hybridNotice.style.display = "none";
         }
       }
     } catch (e) {
-      // Fallback aman default
-      topDot.style.background = "#10b981";
-      topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
-      topText.textContent = "Proteksi ML Siap";
-      topBadge.style.borderColor = "#a7f3d0";
-      topBadge.style.background = "#ecfdf5";
-      topBadge.style.color = "#065f46";
+      if (topDot && topText && topBadge) {
+        topDot.style.background = "#10b981";
+        topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
+        topText.textContent = "Proteksi ML Siap";
+        topBadge.style.borderColor = "#a7f3d0";
+        topBadge.style.background = "#ecfdf5";
+        topBadge.style.color = "#065f46";
+      }
     }
   }
 
   updateTopEngineBadge();
+
+  // Mode Selection Styling and State Tracking
+  const radioHybrid = document.getElementById("scanModeHybrid");
+  const radioMandiri = document.getElementById("scanModeMandiri");
+  const labelHybrid = document.getElementById("labelModeHybrid");
+  const labelMandiri = document.getElementById("labelModeMandiri");
+
+  function updateModeCardStyles() {
+    if (radioHybrid && radioMandiri && labelHybrid && labelMandiri) {
+      if (radioHybrid.checked) {
+        labelHybrid.style.borderColor = "#10b981";
+        labelHybrid.style.background = "#f0fdf4";
+        labelMandiri.style.borderColor = "#e2e8f0";
+        labelMandiri.style.background = "#ffffff";
+        sessionStorage.setItem("phisguard_draft_mode", "hybrid");
+      } else {
+        labelMandiri.style.borderColor = "#10b981";
+        labelMandiri.style.background = "#f0fdf4";
+        labelHybrid.style.borderColor = "#e2e8f0";
+        labelHybrid.style.background = "#ffffff";
+        sessionStorage.setItem("phisguard_draft_mode", "mandiri");
+      }
+    }
+  }
+
+  if (radioHybrid) radioHybrid.addEventListener("change", () => { updateModeCardStyles(); updateTopEngineBadge(); });
+  if (radioMandiri) radioMandiri.addEventListener("change", () => { updateModeCardStyles(); updateTopEngineBadge(); });
+
+  // Form Draft Persistence via sessionStorage
+  const urlInput = document.getElementById("urlInput");
+  const emailInput = document.getElementById("emailInput");
+
+  // Restore drafts on load
+  try {
+    const savedUrl = sessionStorage.getItem("phisguard_draft_url");
+    const savedEmail = sessionStorage.getItem("phisguard_draft_email");
+    const savedMode = sessionStorage.getItem("phisguard_draft_mode");
+
+    if (savedUrl && urlInput && !urlInput.value) urlInput.value = savedUrl;
+    if (savedEmail && emailInput && !emailInput.value) emailInput.value = savedEmail;
+    if (savedMode === "mandiri" && radioMandiri) {
+      radioMandiri.checked = true;
+      updateModeCardStyles();
+    } else if (savedMode === "hybrid" && radioHybrid) {
+      radioHybrid.checked = true;
+      updateModeCardStyles();
+    }
+  } catch (e) {
+    // SessionStorage unavailable or restricted
+  }
+
+  // Save drafts on user typing
+  if (urlInput) urlInput.addEventListener("input", () => sessionStorage.setItem("phisguard_draft_url", urlInput.value));
+  if (emailInput) emailInput.addEventListener("input", () => sessionStorage.setItem("phisguard_draft_email", emailInput.value));
 
   const form = document.getElementById("scanForm");
   if (form) {
@@ -75,17 +142,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const terminalBody = document.getElementById("terminalBody");
       const qwenThoughtText = document.getElementById("qwenThoughtText");
 
-      let payload = { type: scanType };
+      const selectedMode = (radioMandiri && radioMandiri.checked) ? "mandiri" : "hybrid";
+
+      let payload = { 
+        type: scanType,
+        mode: selectedMode
+      };
       let targetDisplay = "";
 
       if (scanType === "url") {
-        const urlInput = document.getElementById("urlInput");
         const val = urlInput.value.trim();
         if (!val) return;
         payload.url = val;
         targetDisplay = val.length > 55 ? val.substring(0, 52) + "..." : val;
       } else {
-        const emailInput = document.getElementById("emailInput");
         const val = emailInput.value.trim();
         if (!val) return;
         payload.text = val;
@@ -96,12 +166,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (terminalBox) terminalBox.style.display = "block";
       if (terminalBody) {
         terminalBody.innerHTML = `
-          <div style="color:#6ee7b7;">[00.00s] [SYSTEM] PhisGuard Hybrid Defense Engine v2.1 diaktifkan.</div>
+          <div style="color:#6ee7b7;">[00.00s] [SYSTEM] PhisGuard Defense Engine v2.1 diaktifkan (${selectedMode.toUpperCase()} MODE).</div>
           <div style="color:#94a3b8;">[00.08s] [TARGET] Objek uji: <span style="color:#e2e8f0;font-weight:700;">${targetDisplay}</span> (${scanType.toUpperCase()})</div>
         `;
       }
 
-      message.textContent = "Menghubungi sistem pertahanan hybrid...";
+      message.textContent = selectedMode === "hybrid" 
+        ? "Menghubungi sistem pertahanan hybrid & verifikasi mendalam..." 
+        : "Menjalankan klasifikasi Supervised Machine Learning (<50ms)...";
       message.style.color = "#2e6659";
       button.disabled = true;
       button.style.opacity = ".7";
@@ -134,32 +206,33 @@ document.addEventListener("DOMContentLoaded", () => {
         const modelName = scanType === "url" ? "XGBoost Classifier" : "Bilingual Linear SVM";
         logTerminal("#fbbf24", `[TIER-1 ML] Menjalankan inferensi model statistik (${modelName})...`);
         if (qwenThoughtText) qwenThoughtText.textContent = `Menguji kecocokan dengan pola dataset (100.000+ sampel)...`;
-      }, 600));
+      }, 550));
 
-      timers.push(setTimeout(() => {
-        logTerminal("#a7f3d0", `[EVIDENCE] Menyusun Evidence Bundle untuk verifikasi independen (Blind Assessment)...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Mengirim paket bukti ke Qwen 2.5 7B tanpa bias label awal...";
-      }, 1000));
+      if (selectedMode === "hybrid") {
+        timers.push(setTimeout(() => {
+          logTerminal("#a7f3d0", `[WEB INSPECT] Memeriksa live HTTP status, redirect, dan form kredensial...`);
+          if (qwenThoughtText) qwenThoughtText.textContent = "Melakukan live deep crawl & ekstraksi form login...";
+        }, 900));
 
-      timers.push(setTimeout(() => {
-        logTerminal("#34d399", `[AI ANALYST] Menghubungi Qwen 2.5 7B via Ollama tunnel...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Qwen 2.5 7B sedang membaca isi target dan menelaah motif rekayasa sosial...";
-      }, 1500));
+        timers.push(setTimeout(() => {
+          logTerminal("#34d399", `[AI ANALYST] Mengirim Evidence Bundle ke ${globalModelName}...`);
+          if (qwenThoughtText) qwenThoughtText.textContent = `${globalModelName} sedang menelaah narasi kontekstual & motif rekayasa sosial...`;
+        }, 1600));
 
-      timers.push(setTimeout(() => {
-        logTerminal("#e2e8f0", `[REASONING] Mengkaji indikator urgensi psikologis dan peniruan entitas...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Menganalisis manipulasi psikologis, peniruan identitas, dan form login...";
-      }, 2800));
+        timers.push(setTimeout(() => {
+          logTerminal("#e2e8f0", `[REASONING] Mengkaji indikator urgensi psikologis, peniruan entitas, dan ancaman...`);
+          if (qwenThoughtText) qwenThoughtText.textContent = "Menganalisis manipulasi emosional, impersonation, dan link harvesting...";
+        }, 3200));
 
-      timers.push(setTimeout(() => {
-        logTerminal("#38bdf8", `[INFERENCE] Qwen 2.5 7B sedang memproses penalaran kontekstual mendalam...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Menunggu penyelesaian inferensi naratif dari model Qwen 2.5 7B via Ollama...";
-      }, 5500));
-
-      timers.push(setTimeout(() => {
-        logTerminal("#a7f3d0", `[CONSENSUS] Menyelaraskan hasil ekstraksi bukti dengan inferensi bahasa alami...`);
-        if (qwenThoughtText) qwenThoughtText.textContent = "Memadukan temuan statistik Machine Learning dengan hasil evaluasi konteks AI...";
-      }, 12000));
+        timers.push(setTimeout(() => {
+          logTerminal("#38bdf8", `[INFERENCE] Menunggu sinkronisasi inferensi bahasa alami (${globalModelName})...`);
+        }, 6000));
+      } else {
+        timers.push(setTimeout(() => {
+          logTerminal("#94a3b8", `[MODE MANDIRI] Melewati panggilan LLM. Menyelesaikan verifikasi berbasis statistik terkalibrasi.`);
+          if (qwenThoughtText) qwenThoughtText.textContent = "Mode Mandiri aktif: Keputusan langsung dari model Supervised ML.";
+        }, 750));
+      }
 
       try {
         const response = await fetch("/api/scan", {
@@ -183,30 +256,37 @@ document.addEventListener("DOMContentLoaded", () => {
         const finalStatus = data.status_text || "Terkonfirmasi";
         const colorVerdict = (data.prediction === "phishing" || qwenVerdict === "phishing") ? "#f87171" : "#4ade80";
 
-        // Tampilkan status koneksi Ollama dan audit tautan
+        // Tampilkan audit tautan jika ada
         if (data.embedded_links_audit && data.embedded_links_audit.total_links > 0) {
           const lAudit = data.embedded_links_audit;
           if (lAudit.has_phishing_link) {
-            logTerminal("#ef4444", `[ALERT] Ditemukan tautan phishing di dalam email. Tingkat ancaman dieskalasi.`);
+            logTerminal("#ef4444", `[ALERT] Ditemukan tautan phishing di dalam pesan. Tingkat ancaman dieskalasi.`);
           } else {
-            logTerminal("#34d399", `[AUDIT] ${lAudit.total_links} tautan tersemat terverifikasi memiliki reputasi normal.`);
+            logTerminal("#34d399", `[AUDIT] ${lAudit.total_links} tautan tersemat diverifikasi memiliki reputasi normal.`);
           }
+        }
+
+        // Tampilkan status Live Web Inspection jika ada
+        if (data.live_inspection && data.live_inspection.http_status && data.live_inspection.http_status !== "Belum Terhubung") {
+          logTerminal("#38bdf8", `[LIVE WEB] Status: ${data.live_inspection.http_status} | Judul: "${data.live_inspection.page_title || '-'}"`);
         }
 
         if (data.qwen) {
           if (data.qwen.is_live_ollama) {
-            logTerminal("#10b981", `[AI VERIFIED] Qwen 2.5 7B terhubung langsung via Ollama.`);
+            logTerminal("#10b981", `[AI VERIFIED] ${data.qwen.source || globalModelName} berhasil memvalidasi konteks.`);
+          } else if (data.qwen.engine_mode === "fallback_mandiri") {
+            logTerminal("#f59e0b", `[FALLBACK] Server LLM offline. Evaluasi dialihkan ke Mode Mandiri.`);
           } else {
-            logTerminal("#94a3b8", `[FALLBACK] Evaluasi independen diselesaikan oleh Mesin Analis Internal.`);
+            logTerminal("#94a3b8", `[MODE MANDIRI] Pemeriksaan diselesaikan secara mandiri oleh ML Engine.`);
           }
         }
 
-        logTerminal(colorVerdict, `[KONSENSUS] Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | Qwen: ${qwenVerdict.toUpperCase()}`);
+        logTerminal(colorVerdict, `[KONSENSUS] Status Akhir: <b>${finalStatus}</b> | ML: ${data.prediction.toUpperCase()} (${data.confidence}%) | AI: ${qwenVerdict.toUpperCase()}`);
         
         if (data.qwen && data.qwen.explanation) {
           const shortExpl = data.qwen.explanation.length > 90 ? data.qwen.explanation.substring(0, 87) + "..." : data.qwen.explanation;
           logTerminal("#6ee7b7", `[TEMUAN AI] "${shortExpl}"`);
-          if (qwenThoughtText) qwenThoughtText.textContent = `Qwen: "${shortExpl}"`;
+          if (qwenThoughtText) qwenThoughtText.textContent = `Temuan: "${shortExpl}"`;
         }
 
         logTerminal("#93c5fd", `[LAPORAN] Menyusun laporan audit forensik resmi...`);
@@ -227,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             window.location.href = "/result";
           }
-        }, 600);
+        }, 500);
 
       } catch (error) {
         timers.forEach(t => clearTimeout(t));

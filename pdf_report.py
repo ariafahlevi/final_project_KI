@@ -1,16 +1,23 @@
 """
 PhisGuard PDF Security Investigation Report Generator
 Menghasilkan dokumen PDF laporan resmi investigasi ancaman phishing
-berdasarkan Bab 11 & Bab 10 Dokumen Rancangan Konsep Proyek Keamanan Informasi.
+dengan verifikasi ganda Dual-Engine dan audit integritas SHA-256.
 """
 
 import io
 import datetime
+import html
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
+
+def esc(s):
+    """Sanitasi string agar aman di-render oleh XML parser ReportLab."""
+    if s is None:
+        return ""
+    return html.escape(str(s))
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -147,12 +154,12 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     # BAGIAN 1: RINGKASAN KASUS (Metadata Box)
     story.append(Paragraph("1. Ringkasan Investigasi (Executive Summary)", h2_style))
     meta_data = [
-        [Paragraph("ID Analisis", body_bold), Paragraph(analysis_id, body_style),
-         Paragraph("Waktu Audit", body_bold), Paragraph(now_str, body_style)],
-        [Paragraph("Tipe Input", body_bold), Paragraph(input_type, body_style),
-         Paragraph("Status Rekonsiliasi", body_bold), Paragraph(f"<b>{reconciliation_status}</b>", body_style)],
-        [Paragraph("Target Objek", body_bold), Paragraph(target[:75] + ("..." if len(target) > 75 else ""), body_style),
-         Paragraph("Keputusan Akhir", body_bold), Paragraph(f"<font color='{badge_color}'><b>{prediction} ({confidence}%)</b></font>", body_style)]
+        [Paragraph("ID Analisis", body_bold), Paragraph(esc(analysis_id), body_style),
+         Paragraph("Waktu Audit", body_bold), Paragraph(esc(now_str), body_style)],
+        [Paragraph("Tipe Input", body_bold), Paragraph(esc(input_type), body_style),
+         Paragraph("Status Rekonsiliasi", body_bold), Paragraph(f"<b>{esc(reconciliation_status)}</b>", body_style)],
+        [Paragraph("Target Objek", body_bold), Paragraph(esc(target[:75]) + ("..." if len(target) > 75 else ""), body_style),
+         Paragraph("Keputusan Akhir", body_bold), Paragraph(f"<font color='{badge_color}'><b>{esc(prediction)} ({confidence}%)</b></font>", body_style)]
     ]
 
     t_meta = Table(meta_data, colWidths=[80, 180, 110, 150])
@@ -166,26 +173,27 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     story.append(t_meta)
     story.append(Spacer(1, 6))
 
-    # BAGIAN 2 & 3: HASIL DETEKSI GANDA (ML vs Qwen 2.5 7B)
-    story.append(Paragraph("2 & 3. Perbandingan Detektor ML vs Verifikator Qwen 2.5 7B", h2_style))
+    # BAGIAN 2 & 3: HASIL DETEKSI GANDA (ML vs LLM)
+    llm_label = qwen.get("model_name", "LLM Context Verifier")
+    story.append(Paragraph(f"2 & 3. Perbandingan Detektor ML vs Verifikator {esc(llm_label)}", h2_style))
     comp_data = [
         [
             Paragraph("<b>2. Detektor Awal: Machine Learning</b>", body_style),
-            Paragraph("<b>3. Pemeriksa Kedua: Qwen 2.5 7B (Ollama)</b>", body_style)
+            Paragraph(f"<b>3. Pemeriksa Kedua: {esc(llm_label)}</b>", body_style)
         ],
         [
             Paragraph(
-                f"• <b>Arsitektur:</b> {model_name}<br/>"
-                f"• <b>Label Prediksi:</b> <b>{prediction}</b><br/>"
+                f"• <b>Arsitektur:</b> {esc(model_name)}<br/>"
+                f"• <b>Label Prediksi:</b> <b>{esc(prediction)}</b><br/>"
                 f"• <b>Keyakinan Statistik:</b> {confidence}%<br/>"
                 f"• <b>Metode Evaluasi:</b> Klasifikasi probabilitas fitur kuantitatif",
                 body_style
             ),
             Paragraph(
-                f"• <b>Model:</b> Qwen 2.5 7B (Local Offline Instance)<br/>"
-                f"• <b>Second Verdict:</b> <b>{second_verdict}</b><br/>"
-                f"• <b>Status Konsensus:</b> {reconciliation_status}<br/>"
-                f"• <b>Metode Evaluasi:</b> Blind Assessment (Konteks & Bukti)",
+                f"• <b>Model:</b> {esc(llm_label)}<br/>"
+                f"• <b>Second Verdict:</b> <b>{esc(second_verdict)}</b><br/>"
+                f"• <b>Status Konsensus:</b> {esc(reconciliation_status)}<br/>"
+                f"• <b>Metode Evaluasi:</b> Evaluasi Konteks &amp; Rekayasa Sosial",
                 body_style
             )
         ]
@@ -209,7 +217,7 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     features = result_data.get("features", {})
     feat_rows = [[Paragraph("<b>Parameter Keamanan</b>", body_style), Paragraph("<b>Hasil Pengamatan Teknis</b>", body_style)]]
     for k, v in features.items():
-        feat_rows.append([Paragraph(k, body_style), Paragraph(str(v), body_style)])
+        feat_rows.append([Paragraph(esc(k), body_style), Paragraph(esc(str(v)), body_style)])
 
     t_feat = Table(feat_rows, colWidths=[175, 345])
     t_feat.setStyle(TableStyle([
@@ -271,19 +279,19 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
             l_color = danger_color if l_pred == "PHISHING" else safe_color
 
             c1 = (
-                f"<font size='7.5'><code>{l_url[:80] + ('...' if len(l_url) > 80 else '')}</code></font><br/>"
-                f"<font color='#525854' size='7'>Domain Root: <b>{l_root}</b></font>"
+                f"<font size='7.5'><code>{esc(l_url[:80]) + ('...' if len(l_url) > 80 else '')}</code></font><br/>"
+                f"<font color='#525854' size='7'>Domain Root: <b>{esc(l_root)}</b></font>"
             )
             c2 = (
-                f"<font color='{l_color}'><b>{l_pred}</b></font><br/>"
+                f"<font color='{l_color}'><b>{esc(l_pred)}</b></font><br/>"
                 f"<font size='7' color='#525854'>Keyakinan: {l_conf}%</font>"
             )
 
-            c3_parts = [f"<b>{l_http}</b>"]
+            c3_parts = [f"<b>{esc(l_http)}</b>"]
             if l_title and l_title not in ["Tidak dapat diambil", "Halaman kosong"]:
-                c3_parts.append(l_title[:45] + ("..." if len(l_title) > 45 else ""))
+                c3_parts.append(esc(l_title[:45]) + ("..." if len(l_title) > 45 else ""))
             if l_spoof:
-                c3_parts.append(f"<font color='#b3261e'><b>Peniruan Brand: {l_spoof_name}</b></font>")
+                c3_parts.append(f"<font color='#b3261e'><b>Peniruan Brand: {esc(l_spoof_name)}</b></font>")
 
             c3 = f"<font size='7.5'>{' · '.join(c3_parts)}</font>"
 
@@ -320,9 +328,9 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     cred_harvest = "Ya, terindikasi form/link pengumpulan data" if soc_eng.get("credential_harvesting", is_phish) else "Tidak ditemukan form kredensial"
 
     soc_data = [
-        [Paragraph("Tingkat Urgensi Psikologis", body_bold), Paragraph(urgency, body_style)],
-        [Paragraph("Upaya Peniruan Identitas (Impersonation)", body_bold), Paragraph(impersonation, body_style)],
-        [Paragraph("Sinyal Credential Harvesting", body_bold), Paragraph(cred_harvest, body_style)],
+        [Paragraph("Tingkat Urgensi Psikologis", body_bold), Paragraph(esc(urgency), body_style)],
+        [Paragraph("Upaya Peniruan Identitas (Impersonation)", body_bold), Paragraph(esc(impersonation), body_style)],
+        [Paragraph("Sinyal Credential Harvesting", body_bold), Paragraph(esc(cred_harvest), body_style)],
     ]
     t_soc = Table(soc_data, colWidths=[175, 345])
     t_soc.setStyle(TableStyle([
@@ -338,7 +346,7 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     if indicators:
         story.append(Paragraph("<b>Daftar Indikator Spesifik yang Ditemukan:</b>", body_bold))
         for ind in indicators:
-            story.append(Paragraph(f"• {ind}", body_style))
+            story.append(Paragraph(f"• {esc(ind)}", body_style))
         story.append(Spacer(1, 5))
 
     # BAGIAN BERIKUTNYA: ANALISIS POTENSI TUJUAN SERANGAN (Dugaan Berbasis Bukti)
@@ -351,20 +359,20 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
     explanation = qwen.get("explanation") or result_data.get("recommendation") or "Analisis konteks selesai."
     
     analysis_narrative = (
-        f"<b>Dugaan Motif Ancaman:</b> {objective}<br/>"
-        f"<b>Catatan Evaluator:</b> {explanation} "
+        f"<b>Dugaan Motif Ancaman:</b> {esc(objective)}<br/>"
+        f"<b>Catatan Evaluator:</b> {esc(explanation)} "
         f"<i>(Catatan: Seluruh analisis tujuan di atas dikategorikan sebagai dugaan berbasis bukti dan membutuhkan konfirmasi lanjutan).</i>"
     )
     story.append(Paragraph(analysis_narrative, callout_style))
     story.append(Spacer(1, 6))
 
     # BAGIAN BERIKUTNYA: KESIMPULAN REKONSILIASI
-    story.append(Paragraph(f"{sec_counter}. Kesimpulan Rekonsiliasi Hasil (Bab 10)", h2_style))
+    story.append(Paragraph(f"{sec_counter}. Kesimpulan Rekonsiliasi Hasil Konsensus", h2_style))
     sec_counter += 1
 
     reconcil_text = (
-        f"Berdasarkan matriks rekonsiliasi antara Machine Learning dan Qwen 2.5 7B, sistem menetapkan status "
-        f"<b>'{reconciliation_status}'</b>. {treatment}"
+        f"Berdasarkan matriks rekonsiliasi antara Machine Learning dan verifikasi konteks LLM, sistem menetapkan status "
+        f"<b>'{esc(reconciliation_status)}'</b>. {esc(treatment)}"
     )
     story.append(Paragraph(reconcil_text, body_style))
     story.append(Spacer(1, 6))
@@ -375,14 +383,14 @@ def generate_pdf_report(result_data: dict) -> io.BytesIO:
 
     recom = result_data.get("recommendation", "Pastikan verifikasi selalu dilakukan melalui kanal resmi.")
     mitigation_points = [
-        f"<b>Bagi Pengguna:</b> {recom}",
+        f"<b>Bagi Pengguna:</b> {esc(recom)}",
         "<b>Bagi Administrator:</b> Tinjau log DNS/mail gateway, blokir indikator IOC jika status sepakat berbahaya, dan edukasi personel terhadap teknik rekayasa sosial serupa."
     ]
     for m in mitigation_points:
         story.append(Paragraph(f"• {m}", body_style))
     story.append(Spacer(1, 6))
 
-    # BAGIAN BERIKUTNYA: LIMITASI SISTEM & BATAS KLAIM (Bab 11 Poin 9)
+    # BAGIAN BERIKUTNYA: LIMITASI SISTEM & BATAS KLAIM
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.gray, spaceAfter=5))
     story.append(Paragraph(f"{sec_counter}. Batas Klaim & Limitasi Sistem", ParagraphStyle("LimH", parent=body_bold, fontSize=7.5, textColor=muted_text)))
     limitasi_text = (

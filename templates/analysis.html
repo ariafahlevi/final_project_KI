@@ -10,7 +10,7 @@
   </div>
   <div>
     <a href="{{ url_for('download_pdf_report_by_id', aid=data.analysis_id) if data and data.analysis_id else url_for('download_pdf_report') }}" class="btn" style="background:#1b4d3e;color:#fff;border-radius:10px;padding:10px 18px;font-weight:700;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(27,77,62,0.2);">
-      Unduh Laporan PDF Resmi (Bab 11)
+      Unduh Laporan PDF Resmi
     </a>
   </div>
 </div>
@@ -35,11 +35,11 @@
   </div>
 </div>
 
-<!-- 1. Matriks Rekonsiliasi Ganda (Bab 10 Dokumen Konsep) -->
+<!-- 1. Matriks Rekonsiliasi Ganda -->
 <div class="panel" style="margin-bottom:20px;padding:20px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
     <div>
-      <h3 style="margin:0;color:#183b32;">1. Matriks Rekonsiliasi Hasil (Bab 10)</h3>
+      <h3 style="margin:0;color:#183b32;">1. Matriks Rekonsiliasi Hasil</h3>
       <p class="muted" style="margin-top:2px;font-size:12px;">Perbandingan keputusan statistik Machine Learning dan evaluasi independen LLM.</p>
     </div>
     {% if data.qwen_result and data.qwen_result.is_live_ollama %}
@@ -124,7 +124,7 @@
   </div>
 </div>
 
-<!-- 2. Evidence Bundle Inspector (Bab 6 & 11) -->
+<!-- 2. Evidence Bundle Inspector -->
 <div class="panel" style="margin-bottom:20px;padding:20px;">
   <div style="margin-bottom:12px;">
     <h3 style="margin:0;color:#183b32;">2. Evidence Bundle (Konteks Bukti yang Diberikan ke LLM)</h3>
@@ -207,12 +207,12 @@
   {% endif %}
 </div>
 
-<!-- 4. Limitasi Sistem (Bab 11 Poin 9) -->
+<!-- 4. Limitasi Sistem -->
 <div class="panel" style="padding:18px;background:#fcfdfd;border:1px dashed #b9d7cb;margin-bottom:20px;">
   <div style="display:flex;align-items:flex-start;gap:10px;">
     <span style="font-size:18px;color:#2e6659;">ⓘ</span>
     <div style="font-size:12px;color:#496b5f;line-height:1.6;">
-      <b style="color:#183b32;">Batas Klaim & Limitasi Sistem (Bab 11):</b><br/>
+      <b style="color:#183b32;">Batas Klaim & Limitasi Sistem:</b><br/>
       Penilaian dari Qwen 2.5 7B merupakan evaluasi bahasa dan penalaran kontekstual yang bersifat kualitatif, bukan probabilitas statistik absolut. Status 'Aman / Legitimate' berarti tidak ditemukan indikator ancaman yang kuat pada bukti yang diuji, bukan jaminan mutlak 100%. Verifikasi langsung melalui kanal resmi tetap disarankan.
     </div>
   </div>

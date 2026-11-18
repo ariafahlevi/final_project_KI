@@ -338,6 +338,8 @@ def scanner():
     google_configured = gmail_service.is_google_configured()
     google_connected = "google_creds" in session
     google_user = session.get("google_user", "")
+    last_res = session.get("last_result")
+    cfg = ml_engine.get_app_config()
     return render_template(
         "scanner.html",
         active="scanner",
@@ -346,7 +348,9 @@ def scanner():
         error_code=error_code,
         google_configured=google_configured,
         google_connected=google_connected,
-        google_user=google_user
+        google_user=google_user,
+        last_result=last_res,
+        config_model=cfg.get("model_name", "qwen2.5:7b")
     )
 
 @app.get("/history")
@@ -476,19 +480,8 @@ def download_pdf_report():
 
 @app.get("/analysis")
 def analysis():
-    explanation_data = session.get("last_explanation", {})
-    if not explanation_data:
-        records = load_history_store()
-        if records and records[0].get("full_result"):
-            f = records[0]["full_result"]
-            explanation_data = {
-                "analysis_id": f["analysis_id"],
-                "input": f["url"],
-                "type": f["input_type"],
-                "ml_result": f,
-                "qwen_result": f.get("qwen", {})
-            }
-    return render_template("analysis.html", active="analysis", data=explanation_data)
+    """Rute Analisis AI: Menampilkan Laporan Forensik Terpadu secara konsisten tanpa ada data yang hilang."""
+    return redirect(url_for("show_result"))
 
 @app.get("/evaluation")
 def evaluation():
@@ -530,32 +523,36 @@ def evaluation():
 @app.get("/settings")
 def settings():
     cfg = ml_engine.get_app_config()
-    ollama_url, model_name = ml_engine.get_ollama_config()
+    ollama_url, model_name, provider, api_key = ml_engine.get_ollama_config()
     records = load_history_store()
     stats = compute_dashboard_stats(records)
     saved = request.args.get("saved") == "1"
     return render_template(
         "settings.html",
         active="settings",
+        llm_provider=provider,
         ollama_url=ollama_url,
         model_name=model_name,
+        api_key=api_key,
         sensitivity=cfg.get("sensitivity", "normal"),
         qwen_mode=cfg.get("qwen_mode", "always"),
-        llm_enabled=cfg.get("llm_enabled", True),
+        deep_inspection=cfg.get("deep_inspection", True),
         saved=saved,
         stats=stats
     )
 
 @app.post("/settings/save")
 def save_settings():
-    """Menyimpan seluruh konfigurasi sistem (Ollama, Sensitivitas, Mode Verifikasi, Saklar LLM)."""
+    """Menyimpan seluruh konfigurasi sistem (Provider, Endpoint, Model, API Key, Sensitivitas)."""
+    llm_provider = request.form.get("llm_provider", "ollama").strip()
     new_url = request.form.get("ollama_url", "").strip()
     model_name = request.form.get("model_name", "qwen2.5:7b").strip()
+    api_key = request.form.get("api_key", "").strip()
     sensitivity = request.form.get("sensitivity", "normal").strip()
     qwen_mode = request.form.get("qwen_mode", "always").strip()
-    llm_enabled = request.form.get("llm_enabled") == "1"
-    
-    if new_url and not new_url.endswith("/api/generate"):
+    deep_inspection = request.form.get("deep_inspection") == "1"
+
+    if llm_provider == "ollama" and new_url and not new_url.endswith("/api/generate"):
         new_url = new_url.rstrip("/") + "/api/generate"
 
     config_path = BASE_DIR / "config.json"
@@ -568,11 +565,13 @@ def save_settings():
             pass
 
     existing_cfg.update({
+        "llm_provider": llm_provider,
         "ollama_url": new_url,
         "model_name": model_name,
+        "api_key": api_key,
         "sensitivity": sensitivity,
         "qwen_mode": qwen_mode,
-        "llm_enabled": llm_enabled
+        "deep_inspection": deep_inspection
     })
     
     with open(config_path, "w", encoding="utf-8") as f:
@@ -583,17 +582,67 @@ def save_settings():
 @app.route("/api/test-ollama", methods=["GET", "POST"])
 @app.get("/api/ollama-status")
 def test_ollama():
-    """Uji koneksi cepat ke endpoint Ollama tanpa timeout."""
+    """Uji koneksi cepat ke endpoint Ollama atau Cloud API tanpa timeout."""
     cfg = ml_engine.get_app_config()
     llm_enabled = cfg.get("llm_enabled", True)
-    ollama_url, model_name = ml_engine.get_ollama_config()
+    ollama_url, model_name, provider, api_key = ml_engine.get_ollama_config()
     start_time = datetime.datetime.now()
     
+    # 1. Jika Cloud API (OpenAI Compatible: Groq, OpenRouter, OpenAI, DeepSeek)
+    if provider == "openai_compatible":
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key.strip()}"
+        }
+        test_payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1
+        }
+        try:
+            r = requests.post(ollama_url, json=test_payload, headers=headers, timeout=8)
+            latency_ms = int((datetime.datetime.now() - start_time).total_seconds() * 1000)
+            if r.status_code == 200:
+                msg = f"Koneksi Cloud API ({model_name}) berhasil ({latency_ms} ms)! Siap menjalankan analisis."
+                return jsonify({
+                    "status": "online",
+                    "code": 200,
+                    "latency_ms": latency_ms,
+                    "installed_models": [model_name],
+                    "message": msg,
+                    "llm_enabled": llm_enabled,
+                    "model_name": model_name,
+                    "provider": provider
+                })
+            elif r.status_code in [401, 403]:
+                return jsonify({
+                    "status": "unauthorized",
+                    "code": r.status_code,
+                    "latency_ms": latency_ms,
+                    "message": f"Autentikasi Gagal (HTTP {r.status_code}). Periksa kembali API Key Anda.",
+                    "llm_enabled": llm_enabled
+                }), 401
+            else:
+                return jsonify({
+                    "status": "error",
+                    "code": r.status_code,
+                    "latency_ms": latency_ms,
+                    "message": f"Server Cloud merespons kode HTTP {r.status_code}: {r.text[:100]}",
+                    "llm_enabled": llm_enabled
+                }), 500
+        except Exception as e:
+            return jsonify({
+                "status": "offline",
+                "code": 503,
+                "message": f"Gagal terhubung ke Cloud Endpoint ({str(e)}).",
+                "llm_enabled": llm_enabled
+            }), 503
+
+    # 2. Jika Ollama (Lokal atau Tunneling Ngrok)
     parsed = urllib.parse.urlparse(ollama_url)
     base_url = f"{parsed.scheme}://{parsed.netloc}"
     
     try:
-        # Cek ketersediaan server & daftar model (instan <1 detik) dengan bypass interstitial ngrok
         headers = {
             "ngrok-skip-browser-warning": "true",
             "User-Agent": "PhisGuard-Engine/2.1"
@@ -606,7 +655,7 @@ def test_ollama():
             installed = [m.get("name") for m in models_data]
             is_ready = any(model_name in n for n in installed)
             
-            models_str = ", ".join(installed) if installed else "qwen2.5:7b"
+            models_str = ", ".join(installed) if installed else model_name
             if is_ready:
                 msg = f"Server Ollama terhubung aktif ({latency_ms} ms)! Model '{model_name}' siap menjalankan verifikasi."
             else:
@@ -618,7 +667,9 @@ def test_ollama():
                 "latency_ms": latency_ms,
                 "installed_models": installed,
                 "message": msg,
-                "llm_enabled": llm_enabled
+                "llm_enabled": llm_enabled,
+                "model_name": model_name,
+                "provider": provider
             })
         elif r_tags.status_code == 403:
             return jsonify({
@@ -674,8 +725,9 @@ def api_scan():
     else:
         ml_res = ml_engine.predict_url_ml(target_input)
 
-    # 2. Pemeriksa Kedua Independen (Qwen 2.5 7B via Ollama)
-    qwen_res = ml_engine.get_qwen_verification(target_input, ml_res["type"], ml_res)
+    scan_mode = data.get("mode", "hybrid")
+    # 2. Pemeriksa Kedua Independen (LLM Context Reasoning)
+    qwen_res = ml_engine.get_qwen_verification(target_input, ml_res["type"], ml_res, force_mode=scan_mode)
 
     combined_result = {
         "analysis_id": analysis_id,

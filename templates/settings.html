@@ -5,7 +5,7 @@
 <div class="page-intro">
   <div class="eyebrow">SYSTEM CONFIGURATION & DIAGNOSTICS</div>
   <h1>Pengaturan <span>sistem deteksi.</span></h1>
-  <p class="muted">Konfigurasi alamat server AI, sensitivitas model machine learning, dan diagnostik jalur tunneling.</p>
+  <p class="muted">Konfigurasi alamat server AI multi-metode (Lokal/Tunnel/API Key), sensitivitas model machine learning, dan diagnostik latensi.</p>
 </div>
 
 {% if saved %}
@@ -14,87 +14,101 @@
 </div>
 {% endif %}
 
-<form action="{{ url_for('save_settings') }}" method="POST">
+<form action="{{ url_for('save_settings') }}" method="POST" id="settingsForm">
   <div class="settings-layout">
-    <!-- 1. Konfigurasi Server AI (Ollama) -->
+    <!-- 1. Konfigurasi Server AI Multi-Metode -->
     <section class="panel settings-panel">
-      <h3>1. Koneksi Server AI (Ollama)</h3>
-      <p class="muted">Alamat server tempat model Qwen 2.5 7B berjalan (lokal atau melalui tunneling Ngrok).</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <h3 style="margin:0;">1. Integrasi Server AI (Multi-Metode)</h3>
+        <span id="providerBadge" style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;background:#e2e8f0;color:#334155;">
+          {{ llm_provider|upper }}
+        </span>
+      </div>
+      <p class="muted" style="margin-top:0;">Dukung berbagai metode koneksi: Ollama lokal di laptop, tunneling remote (Ngrok/VPS), atau Cloud API (Groq/OpenRouter/OpenAI).</p>
 
+      <!-- Preset Cepat -->
+      <div style="margin-top:14px;background:#f8fafc;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;">
+        <span style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:6px;">PILIHAN PRESET CEPAT:</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn" onclick="applyPreset('ollama_local')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
+            💻 Ollama Lokal (11434)
+          </button>
+          <button type="button" class="btn" onclick="applyPreset('ollama_tunnel')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
+            🌐 Tunneling Ngrok
+          </button>
+          <button type="button" class="btn" onclick="applyPreset('cloud_groq')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
+            ⚡ Groq Cloud (Cepat)
+          </button>
+          <button type="button" class="btn" onclick="applyPreset('cloud_openrouter')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
+            🤖 OpenRouter API
+          </button>
+        </div>
+      </div>
+
+      <!-- Pilihan Provider -->
       <div style="margin-top:14px;">
-        <label for="ollamaUrl" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">URL Endpoint Ollama</label>
+        <label for="llmProvider" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Tipe Protokol Koneksi</label>
+        <select id="llmProvider" name="llm_provider" style="width:100%;padding:10px 12px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;background:#fff;" onchange="toggleProviderFields()">
+          <option value="ollama" {% if llm_provider == 'ollama' or not llm_provider %}selected{% endif %}>
+            Ollama API (Lokal 127.0.0.1 atau Tunnel Ngrok/VPS)
+          </option>
+          <option value="openai_compatible" {% if llm_provider == 'openai_compatible' %}selected{% endif %}>
+            OpenAI-Compatible Cloud API (Groq, OpenRouter, OpenAI, DeepSeek)
+          </option>
+        </select>
+      </div>
+
+      <!-- URL Endpoint -->
+      <div style="margin-top:14px;">
+        <label for="ollamaUrl" id="lblUrl" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">URL Endpoint AI</label>
         <input type="text" id="ollamaUrl" name="ollama_url" value="{{ ollama_url }}" placeholder="https://xxxx.ngrok-free.dev/api/generate" style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;" required>
-        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
-          Contoh: <code>https://xxxx.ngrok-free.dev/api/generate</code>
+        <small class="muted" id="urlHelp" style="font-size:11px;display:block;margin-top:4px;">
+          Contoh Ollama: <code>http://127.0.0.1:11434/api/generate</code> atau URL Ngrok tunnel Anda.
         </small>
       </div>
 
+      <!-- Nama Model -->
       <div style="margin-top:14px;">
         <label for="modelName" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">Nama Model LLM</label>
         <input type="text" id="modelName" name="model_name" value="{{ model_name }}" placeholder="qwen2.5:7b" style="width:100%;padding:10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
-        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
-          Standar proyek: <code>qwen2.5:7b</code>
+        <small class="muted" id="modelHelp" style="font-size:11px;display:block;margin-top:4px;">
+          Contoh: <code>qwen2.5:7b</code>, <code>llama-3.3-70b-versatile</code>, atau <code>deepseek-chat</code>.
         </small>
       </div>
 
-      <!-- Saklar Nyala / Mati Layanan LLM -->
-      <div style="margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
+      <!-- API Key Field (Muncul untuk OpenAI Compatible) -->
+      <div id="apiKeyGroup" style="margin-top:14px;display:{{ 'block' if llm_provider == 'openai_compatible' else 'none' }};">
+        <label for="apiKey" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">API Key (Bearer Token)</label>
+        <div style="position:relative;">
+          <input type="password" id="apiKey" name="api_key" value="{{ api_key or '' }}" placeholder="gsk_... / sk-or-... / sk-..." style="width:100%;padding:10px 38px 10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+          <button type="button" onclick="togglePasswordVisibility('apiKey')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:13px;" title="Lihat / Sembunyikan">
+            👁️
+          </button>
+        </div>
+        <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
+          Kunci API disimpan secara lokal di mesin Anda dan tidak dibagikan ke pihak ketiga.
+        </small>
+      </div>
+
+      <!-- Deep Live Web Inspection Feature Toggle -->
+      <div style="margin-top:16px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+          <input type="checkbox" name="deep_inspection" value="1" {% if deep_inspection %}checked{% endif %} style="margin-top:3px;accent-color:#10b981;">
           <div>
-            <b style="font-size:12.5px;color:#1e293b;display:block;">Layanan Analis AI Kontekstual (LLM)</b>
-            <small class="muted" style="font-size:11px;">Aktifkan penalaran naratif Qwen 2.5 7B atau beralih ke mode Machine Learning mandiri.</small>
+            <b style="font-size:12px;color:#1e293b;display:block;">Inspeksi Konten Halaman Web Aktif (Deep Web Crawl)</b>
+            <span style="font-size:11px;color:#64748b;line-height:1.4;display:block;margin-top:2px;">
+              Mensimulasikan pembukaan tautan, membaca riwayat pengalihan (redirect), form kredensial sandi/OTP, serta mengekstrak teks halaman untuk dianalisis oleh AI.
+            </span>
           </div>
-          <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:{{ '#ecfdf5' if llm_enabled else '#f1f5f9' }};color:{{ '#065f46' if llm_enabled else '#64748b' }};">
-            {{ 'AKTIF' if llm_enabled else 'NONAKTIF' }}
-          </span>
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#ffffff;border:1px solid {{ '#10b981' if llm_enabled else '#e2e8f0' }};border-radius:8px;cursor:pointer;">
-            <input type="radio" name="llm_enabled" value="1" {% if llm_enabled %}checked{% endif %} style="margin-top:3px;">
-            <div>
-              <b style="font-size:12px;color:#0f172a;display:block;">Mode Hybrid Aktif (Supervised ML + Qwen 2.5 7B)</b>
-              <small class="muted" style="font-size:11px;">Memanggil Ollama/Ngrok untuk evaluasi independen, deteksi rekayasa sosial, dan konsensus ganda.</small>
-            </div>
-          </label>
-
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#ffffff;border:1px solid {{ '#10b981' if not llm_enabled else '#e2e8f0' }};border-radius:8px;cursor:pointer;">
-            <input type="radio" name="llm_enabled" value="0" {% if not llm_enabled %}checked{% endif %} style="margin-top:3px;">
-            <div>
-              <b style="font-size:12px;color:#0f172a;display:block;">Mode Mandiri (Supervised ML Murni - Respon Cepat &lt;50ms)</b>
-              <small class="muted" style="font-size:11px;">Melewati panggilan ke LLM secara penuh. Tanpa jeda waktu jaringan atau risiko timeout. Keputusan 100% dari model terlatih.</small>
-            </div>
-          </label>
-        </div>
-
-        <!-- Banner Peringatan Jika Mode Hybrid Dipilih tapi LLM Mati -->
-        <div id="llmOfflineWarning" style="display:none;margin-top:12px;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#991b1b;font-size:12px;line-height:1.5;">
-          <div style="display:flex;align-items:flex-start;gap:8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div>
-              <b style="color:#7f1d1d;font-size:12.5px;">Peringatan: Server LLM Saat Ini Tidak Merespons (Offline)</b>
-              <div id="llmOfflineReason" style="margin-top:2px;color:#991b1b;">
-                Endpoint Ollama/Ngrok tidak dapat dijangkau. Jika Anda tetap memilih Mode Hybrid, sistem akan otomatis melempar hasil scan ke <b>Mode Mandiri</b>.
-              </div>
-              <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <button type="button" id="btnSwitchToMandiri" class="btn" style="background:#dc2626;color:#ffffff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
-                  Alihkan ke Mode Mandiri Sekarang
-                </button>
-                <button type="button" id="btnCheckLLMAgain" class="btn" style="background:#ffffff;color:#991b1b;border:1px solid #fca5a5;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
-                  Cek Ulang Status
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </label>
       </div>
 
       <!-- Live Diagnostic Button -->
       <div style="border-top:1px solid #e5ece7;padding-top:14px;margin-top:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <b style="font-size:12px;color:#183b32;">Diagnostik Jalur Tunneling:</b>
+          <b style="font-size:12px;color:#183b32;">Diagnostik Konektivitas Server AI:</b>
           <button type="button" id="btnTestOllama" class="btn" style="background:#1b4d3e;color:#fff;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;">
-            Uji Koneksi Ollama
+            Uji Koneksi AI Sekarang
           </button>
         </div>
 
@@ -102,25 +116,25 @@
       </div>
     </section>
 
-    <!-- 2. Tingkat Sensitivitas Deteksi ML & Verifikasi Qwen -->
+    <!-- 2. Tingkat Sensitivitas Deteksi ML & Kebijakan Keamanan -->
     <section class="panel settings-panel">
       <h3>2. Kebijakan & Sensitivitas Keamanan</h3>
-      <p class="muted">Tentukan ambang batas (*decision threshold*) klasifikasi phishing dan intensitas LLM.</p>
+      <p class="muted">Tentukan ambang batas (*decision threshold*) klasifikasi phishing dan intensitas penalaran AI.</p>
 
       <!-- Sensitivitas -->
       <div style="margin-top:14px;">
         <label style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:8px;">Tingkat Sensitivitas Deteksi</label>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
-            <input type="radio" name="sensitivity" value="high" {% if sensitivity == 'high' %}checked{% endif %} style="margin-top:3px;">
+            <input type="radio" name="sensitivity" value="high" {% if sensitivity == 'high' %}checked{% endif %} style="margin-top:3px;accent-color:#10b981;">
             <div>
               <b style="font-size:12px;color:#183b32;display:block;">Tinggi / Protektif (Ambang Batas 40%)</b>
-              <small class="muted" style="font-size:11px;">Mencegat ancaman lebih agresif. Cocok untuk lingkungan perbankan atau email perusahaan.</small>
+              <small class="muted" style="font-size:11px;">Mencegat ancaman lebih agresif. Sangat cocok untuk lingkungan perbankan atau email perusahaan.</small>
             </div>
           </label>
 
           <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
-            <input type="radio" name="sensitivity" value="normal" {% if sensitivity == 'normal' or not sensitivity %}checked{% endif %} style="margin-top:3px;">
+            <input type="radio" name="sensitivity" value="normal" {% if sensitivity == 'normal' or not sensitivity %}checked{% endif %} style="margin-top:3px;accent-color:#10b981;">
             <div>
               <b style="font-size:12px;color:#183b32;display:block;">Standar Seimbang (Ambang Batas 50% - Rekomendasi)</b>
               <small class="muted" style="font-size:11px;">Keseimbangan optimal antara pencegahan phishing dan minimalisasi *false alarm*.</small>
@@ -128,28 +142,28 @@
           </label>
 
           <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fbfdfc;border:1px solid #d4ece1;border-radius:8px;cursor:pointer;">
-            <input type="radio" name="sensitivity" value="low" {% if sensitivity == 'low' %}checked{% endif %} style="margin-top:3px;">
+            <input type="radio" name="sensitivity" value="low" {% if sensitivity == 'low' %}checked{% endif %} style="margin-top:3px;accent-color:#10b981;">
             <div>
               <b style="font-size:12px;color:#183b32;display:block;">Konservatif (Ambang Batas 60%)</b>
-              <small class="muted" style="font-size:11px;">Hanya menandai jika bukti sangat kuat. Sangat minim salah blokir.</small>
+              <small class="muted" style="font-size:11px;">Hanya menandai jika bukti sangat kuat. Sangat minim potensi salah blokir.</small>
             </div>
           </label>
         </div>
       </div>
 
-      <!-- Mode Verifikasi Qwen -->
+      <!-- Mode Inferensi AI -->
       <div style="margin-top:16px;border-top:1px solid #e5ece7;padding-top:14px;">
-        <label style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:8px;">Mode Inferensi Qwen 2.5 7B</label>
+        <label style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:8px;">Intensitas Verifikasi LLM</label>
         <select name="qwen_mode" style="width:100%;padding:10px 12px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;background:#fff;">
           <option value="always" {% if qwen_mode == 'always' or not qwen_mode %}selected{% endif %}>
             Verifikasi Penuh (Selalu Evaluasi Narasi Konteks & Rekayasa Sosial)
           </option>
           <option value="selective" {% if qwen_mode == 'selective' %}selected{% endif %}>
-            Verifikasi Selektif (Panggil Qwen Hanya Saat Skor ML Berada di Zona Ragu-ragu)
+            Verifikasi Selektif (Panggil AI Hanya Saat Skor ML di Zona Ambang Ragu)
           </option>
         </select>
         <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
-          Pilih *Verifikasi Penuh* agar komentar dan analisis analis Qwen 2.5 7B selalu aktif pada setiap hasil scan.
+          Pilih <i>Verifikasi Penuh</i> agar analisis naratif kontekstual selalu aktif pada setiap pemindaian di Mode Hybrid.
         </small>
       </div>
     </section>
@@ -164,73 +178,64 @@
 </form>
 
 <script>
+function toggleProviderFields() {
+  const prov = document.getElementById("llmProvider").value;
+  const apiKeyGrp = document.getElementById("apiKeyGroup");
+  const urlHelp = document.getElementById("urlHelp");
+  const modelHelp = document.getElementById("modelHelp");
+  const provBadge = document.getElementById("providerBadge");
+
+  if (provBadge) provBadge.textContent = prov.toUpperCase();
+
+  if (prov === "openai_compatible") {
+    apiKeyGrp.style.display = "block";
+    urlHelp.innerHTML = "Contoh Groq: <code>https://api.groq.com/openai/v1/chat/completions</code> | OpenRouter: <code>https://openrouter.ai/api/v1/chat/completions</code>";
+    modelHelp.innerHTML = "Contoh Groq: <code>llama-3.3-70b-versatile</code> | OpenRouter: <code>meta-llama/llama-3.2-3b-instruct:free</code> | OpenAI: <code>gpt-4o-mini</code>";
+  } else {
+    apiKeyGrp.style.display = "none";
+    urlHelp.innerHTML = "Contoh Ollama: <code>http://127.0.0.1:11434/api/generate</code> atau URL Ngrok tunnel Anda.";
+    modelHelp.innerHTML = "Contoh: <code>qwen2.5:7b</code>, <code>llama3.1:8b</code>, <code>deepseek-r1:7b</code>.";
+  }
+}
+
+function applyPreset(presetType) {
+  const provSelect = document.getElementById("llmProvider");
+  const urlInput = document.getElementById("ollamaUrl");
+  const modelInput = document.getElementById("modelName");
+  const apiKeyInput = document.getElementById("apiKey");
+
+  if (presetType === "ollama_local") {
+    provSelect.value = "ollama";
+    urlInput.value = "http://127.0.0.1:11434/api/generate";
+    modelInput.value = "qwen2.5:7b";
+  } else if (presetType === "ollama_tunnel") {
+    provSelect.value = "ollama";
+    urlInput.value = "https://finn-unfecundated-lucienne.ngrok-free.dev/api/generate";
+    modelInput.value = "qwen2.5:7b";
+  } else if (presetType === "cloud_groq") {
+    provSelect.value = "openai_compatible";
+    urlInput.value = "https://api.groq.com/openai/v1/chat/completions";
+    modelInput.value = "llama-3.3-70b-versatile";
+    if (!apiKeyInput.value) apiKeyInput.placeholder = "Tempelkan Groq API Key Anda (gsk_...)";
+  } else if (presetType === "cloud_openrouter") {
+    provSelect.value = "openai_compatible";
+    urlInput.value = "https://openrouter.ai/api/v1/chat/completions";
+    modelInput.value = "meta-llama/llama-3.2-3b-instruct:free";
+    if (!apiKeyInput.value) apiKeyInput.placeholder = "Tempelkan OpenRouter API Key Anda (sk-or-...)";
+  }
+  toggleProviderFields();
+}
+
+function togglePasswordVisibility(fieldId) {
+  const f = document.getElementById(fieldId);
+  if (f) {
+    f.type = f.type === "password" ? "text" : "password";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const btnTest = document.getElementById("btnTestOllama");
   const resultBox = document.getElementById("testResultBox");
-  const radioHybrid = document.querySelector('input[name="llm_enabled"][value="1"]');
-  const radioMandiri = document.querySelector('input[name="llm_enabled"][value="0"]');
-  const warningBox = document.getElementById("llmOfflineWarning");
-  const reasonText = document.getElementById("llmOfflineReason");
-  const btnSwitchMandiri = document.getElementById("btnSwitchToMandiri");
-  const btnRecheck = document.getElementById("btnCheckLLMAgain");
-
-  async function checkLLMHealth() {
-    if (!radioHybrid || !radioHybrid.checked) {
-      if (warningBox) warningBox.style.display = "none";
-      return;
-    }
-    try {
-      const res = await fetch("/api/test-ollama");
-      const data = await res.json();
-      if (res.status === 200 && data.status === "online") {
-        if (warningBox) warningBox.style.display = "none";
-      } else {
-        if (warningBox && radioHybrid.checked) {
-          warningBox.style.display = "block";
-          if (reasonText && data.message) {
-            reasonText.innerHTML = `Server Ollama tidak merespons: <b>${escapeHtml(data.message)}</b>. Karena LLM mati, sistem akan otomatis melempar hasil scan ke <b>Mode Mandiri</b>.`;
-          }
-        }
-      }
-    } catch (e) {
-      if (warningBox && radioHybrid.checked) {
-        warningBox.style.display = "block";
-        if (reasonText) {
-          reasonText.innerHTML = "Server Ollama/Ngrok tidak dapat dihubungi. Disarankan beralih ke <b>Mode Mandiri</b> agar pemindaian berjalan optimal.";
-        }
-      }
-    }
-  }
-
-  if (radioHybrid) {
-    radioHybrid.addEventListener("change", () => {
-      if (radioHybrid.checked) checkLLMHealth();
-    });
-  }
-
-  if (radioMandiri) {
-    radioMandiri.addEventListener("change", () => {
-      if (radioMandiri.checked && warningBox) {
-        warningBox.style.display = "none";
-      }
-    });
-  }
-
-  if (btnSwitchMandiri && radioMandiri) {
-    btnSwitchMandiri.addEventListener("click", () => {
-      radioMandiri.checked = true;
-      if (warningBox) warningBox.style.display = "none";
-    });
-  }
-
-  if (btnRecheck) {
-    btnRecheck.addEventListener("click", checkLLMHealth);
-  }
-
-  // Pengecekan otomatis saat halaman dimuat jika Mode Hybrid aktif
-  if (radioHybrid && radioHybrid.checked) {
-    setTimeout(checkLLMHealth, 300);
-  }
 
   function escapeHtml(str) {
     if (!str) return "";
@@ -245,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resultBox.style.background = "#f4fbf8";
       resultBox.style.border = "1px solid #c8e7d9";
       resultBox.style.color = "#2e6659";
-      resultBox.textContent = "Menghubungi endpoint Ollama...";
+      resultBox.textContent = "Menghubungi endpoint AI yang dikonfigurasi...";
 
       try {
         const res = await fetch("/api/test-ollama", { method: "POST" });
@@ -255,30 +260,26 @@ document.addEventListener("DOMContentLoaded", () => {
           resultBox.style.background = "#eaf5ee";
           resultBox.style.border = "1px solid #5c9f88";
           resultBox.style.color = "#183b32";
-          resultBox.innerHTML = `<b>[AKTIF] KONEKSI TERSAMBUNG (${data.latency_ms} ms)</b><br>${data.message}`;
-          if (warningBox) warningBox.style.display = "none";
-        } else if (res.status === 403) {
+          resultBox.innerHTML = `<b>[AKTIF] KONEKSI TERSAMBUNG (${data.latency_ms || 0} ms)</b><br>${escapeHtml(data.message)}`;
+        } else if (res.status === 401 || res.status === 403) {
           resultBox.style.background = "#fff8f0";
           resultBox.style.border = "1px solid #f0b27a";
           resultBox.style.color = "#a04000";
-          resultBox.innerHTML = `<b>[PERINGATAN] STATUS 403 FORBIDDEN</b><br>${data.message}`;
-          if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
+          resultBox.innerHTML = `<b>[PERINGATAN] STATUS ${res.status}</b><br>${escapeHtml(data.message)}`;
         } else {
           resultBox.style.background = "#feebee";
           resultBox.style.border = "1px solid #f3c2c7";
           resultBox.style.color = "#b33946";
-          resultBox.innerHTML = `<b>[GAGAL] KONEKSI GAGAL (${res.status})</b><br>${data.message}`;
-          if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
+          resultBox.innerHTML = `<b>[GAGAL] KONEKSI GAGAL (${res.status})</b><br>${escapeHtml(data.message)}`;
         }
       } catch (err) {
         resultBox.style.background = "#feebee";
         resultBox.style.border = "1px solid #f3c2c7";
         resultBox.style.color = "#b33946";
-        resultBox.innerHTML = `<b>[ERROR] GAGAL TERHUBUNG</b><br>${err.message}`;
-        if (warningBox && radioHybrid && radioHybrid.checked) warningBox.style.display = "block";
+        resultBox.innerHTML = `<b>[ERROR] GAGAL TERHUBUNG</b><br>${escapeHtml(err.message)}`;
       } finally {
         btnTest.disabled = false;
-        btnTest.textContent = "Uji Koneksi Ollama";
+        btnTest.textContent = "Uji Koneksi AI Sekarang";
       }
     });
   }
