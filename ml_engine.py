@@ -93,8 +93,31 @@ SUSPICIOUS_EXTS = {
 
 KNOWN_BRANDS = [
     'optus', 'bca', 'bri', 'mandiri', 'paypal', 'netflix', 'google', 'microsoft',
-    'apple', 'facebook', 'shopee', 'tokopedia', 'dana', 'bni', 'cimb', 'dhl', 'sicepat'
+    'apple', 'facebook', 'shopee', 'tokopedia', 'dana', 'bni', 'cimb', 'dhl', 'sicepat', 'kitabisa'
 ]
+
+# Daftar Root Domain Resmi Platform Digital Terdaftar (Indonesia & Global)
+# Digunakan untuk mencegah False Positive pada tautan tracking resmi, newsletter, dan sistem notifikasi sah
+TRUSTED_ROOT_DOMAINS = {
+    # Platform Indonesia & Layanan Publik / Crowdfunding
+    'kitabisa.com', 'tokopedia.com', 'shopee.co.id', 'blibli.com', 'bukalapak.com',
+    'gojek.com', 'grab.com', 'traveloka.com', 'tiket.com',
+    'telkomsel.com', 'indosatooredoo.com', 'tri.co.id', 'xl.co.id', 'myrepublic.co.id',
+    'bca.co.id', 'bankmandiri.co.id', 'mandiri.co.id', 'bni.co.id', 'bri.co.id',
+    'cimbniaga.co.id', 'danamon.co.id', 'bankbsi.co.id', 'jago.com', 'jenius.com',
+    'kompas.com', 'detik.com', 'tempo.co', 'antaranews.com',
+    # Platform Teknologi, Produktivitas, Media & Komunikasi Global
+    'gamma.app', 'linkedin.com', 'github.com', 'gitlab.com', 'bitbucket.org',
+    'google.com', 'gmail.com', 'youtube.com', 'gstatic.com', 'googleusercontent.com',
+    'microsoft.com', 'live.com', 'office.com', 'outlook.com', 'azure.com',
+    'apple.com', 'icloud.com', 'amazon.com', 'aws.amazon.com',
+    'tiktok.com', 'instagram.com', 'facebook.com', 'twitter.com', 'x.com',
+    'freelancer.com', 'upwork.com', 'fiverr.com',
+    'theatlantic.com', 'wsj.com', 'nytimes.com', 'bloomberg.com', 'reuters.com',
+    'nvidia.com', 'intel.com', 'amd.com', 'openai.com', 'anthropic.com',
+    'netflix.com', 'spotify.com', 'zoom.us', 'slack.com', 'notion.so', 'figma.com',
+    'canva.com', 'dropbox.com', 'cloudflare.com', 'vercel.com', 'render.com'
+}
 
 def parse_domain_parts(host: str) -> dict:
     host = host.lower().strip()
@@ -128,6 +151,7 @@ def parse_domain_parts(host: str) -> dict:
             subdomain_count = max(0, len(parts) - 2)
 
     is_institutional = any(host == sfx.lstrip('.') or host.endswith(sfx) for sfx in INSTITUTIONAL_SUFFIXES)
+    is_trusted_platform = root_domain.lower() in TRUSTED_ROOT_DOMAINS
 
     return {
         'tld': tld,
@@ -136,7 +160,8 @@ def parse_domain_parts(host: str) -> dict:
         'subdomain': subdomain,
         'subdomain_count': subdomain_count,
         'domain_name_length': len(domain_name),
-        'is_institutional': is_institutional
+        'is_institutional': is_institutional,
+        'is_trusted_platform': is_trusted_platform
     }
 
 def load_url_model():
@@ -260,24 +285,35 @@ def inspect_live_url(url: str) -> dict:
     root_domain = dparts['root_domain']
     subdomain = dparts['subdomain']
     is_institutional = dparts['is_institutional']
+    is_trusted_platform = dparts['is_trusted_platform']
 
-    # Deteksi merek terkenal di subdomain (Subdomain Spoofing)
+    # Deteksi merek terkenal di subdomain maupun nama domain (Brand Impersonation & Typosquatting)
     brand_spoofed = None
-    if subdomain:
+    if subdomain and subdomain != "Tidak Ada (Root Domain)":
         for b in KNOWN_BRANDS:
             if b in subdomain:
                 if b not in root_domain:
                     brand_spoofed = b
                     break
 
+    # Deteksi peniruan brand di domain utama (misal bca-tarif-konfirmasi.live, mandiri-update.xyz)
+    if not brand_spoofed and dparts['domain_name'] and root_domain not in TRUSTED_ROOT_DOMAINS:
+        d_name = dparts['domain_name'].lower()
+        phish_keywords = ['tarif', 'update', 'login', 'verifikasi', 'verify', 'secure', 'service', 'layanan', 'bantuan', 'cs', 'account', 'auth', 'rekening', 'otp']
+        for b in KNOWN_BRANDS:
+            if b in d_name and (any(kw in d_name for kw in phish_keywords) or '-' in d_name):
+                brand_spoofed = b
+                break
+
     inspection = {
         "host": host,
         "root_domain": root_domain,
         "subdomain": subdomain if subdomain else "Tidak Ada (Root Domain)",
         "is_institutional": is_institutional,
+        "is_trusted_platform": is_trusted_platform,
         "brand_spoofing_detected": brand_spoofed is not None,
         "brand_spoofed_name": brand_spoofed.upper() if brand_spoofed else None,
-        "brand_spoofing_alert": f"PERINGATAN ANOMALI: Nama brand '{brand_spoofed.upper()}' dijadikan Subdomain, padahal Root Domain resmi adalah '{root_domain}'. Ini adalah indikasi kuat Brand Impersonation / Subdomain Spoofing!" if brand_spoofed else "Normal / Tidak terindikasi peniruan brand di subdomain",
+        "brand_spoofing_alert": f"PERINGATAN ANOMALI: Nama brand '{brand_spoofed.upper()}' ditiru pada domain tidak resmi '{root_domain}'. Ini adalah indikasi kuat Brand Impersonation / Phishing!" if brand_spoofed else "Normal / Tidak terindikasi peniruan brand",
         "http_status": "Belum Terhubung",
         "page_title": "Tidak dapat diambil",
         "has_password_field": False,
@@ -345,15 +381,16 @@ def predict_url_ml(url: str) -> dict:
     inspection = inspect_live_url(url)
     
     is_inst = inspection.get("is_institutional", False)
+    is_trusted = inspection.get("is_trusted_platform", False) or (inspection.get("root_domain") in TRUSTED_ROOT_DOMAINS)
     is_waf = inspection.get("waf_phishing_block", False)
     is_spoofed = inspection.get("brand_spoofing_detected", False)
 
-    # Rekonsiliasi domain institusi resmi (Kampus .ac.id / Lembaga .go.id / .edu)
-    # Domain ini diatur ketat oleh PANDI/pemerintah dan memiliki kredibilitas resmi tinggi
-    if is_inst and not is_waf and not is_spoofed:
+    # Rekonsiliasi domain institusi resmi (Kampus .ac.id / Lembaga .go.id / .edu) dan platform resmi terpercaya
+    # Domain resmi terdaftar yang tidak terindikasi peniruan merek/WAF block dikalibrasi untuk mencegah False Positive
+    if (is_inst or is_trusted) and not is_waf and not is_spoofed:
         if prob_phish > 0.15:
-            prob_phish = 0.05
-            prob_safe = 0.95
+            prob_phish = 0.04
+            prob_safe = 0.96
     
     threshold = get_threshold()
     is_phish = prob_phish >= threshold
@@ -373,6 +410,8 @@ def predict_url_ml(url: str) -> dict:
 
     if is_inst:
         features_display["Status Domain Institusi"] = "Domain Pendidikan / Pemerintahan Resmi Terverifikasi (.ac.id / .go.id / .edu)"
+    elif is_trusted:
+        features_display["Reputasi Domain"] = f"Domain Resmi Terverifikasi ({inspection['root_domain']})"
 
     if inspection['brand_spoofing_detected']:
         features_display["Peringatan Brand Spoofing"] = inspection['brand_spoofing_alert']
@@ -669,7 +708,7 @@ Balas HANYA format JSON valid:
                 }
             },
             headers=headers,
-            timeout=22
+            timeout=6
         )
         if res.status_code == 200:
             data = res.json()
@@ -701,6 +740,7 @@ Balas HANYA format JSON valid:
     brand_alert = inspection_meta.get("brand_spoofing_detected", False)
     waf_alert = inspection_meta.get("waf_phishing_block", False)
     is_inst = inspection_meta.get("is_institutional", False)
+    is_trusted = inspection_meta.get("is_trusted_platform", False) or (inspection_meta.get("root_domain") in TRUSTED_ROOT_DOMAINS)
     
     if brand_alert or waf_alert:
         second_verdict = "phishing"
@@ -721,123 +761,104 @@ Balas HANYA format JSON valid:
             "credential_harvesting": True,
             "potential_objective": f"Pencurian kredensial akun pengguna & peniruan layanan {brand_name}"
         }
-    elif is_inst and not waf_alert and not brand_alert:
+    elif (is_inst or is_trusted) and not waf_alert and not brand_alert:
         second_verdict = "legitimate"
+        ent_desc = "Institusi Pendidikan/Pemerintahan Resmi" if is_inst else "Platform Digital / Layanan Resmi Terdaftar"
         explanation = (
-            f"Evaluasi forensik independen mengonfirmasi bahwa target merupakan portal resmi dari institusi terdaftar ({inspection_meta.get('root_domain')}). "
-            f"Domain institusional berakhiran resmi (.ac.id/.go.id) memiliki legalitas hukum terverifikasi di bawah regulasi PANDI / Kementerian dan tidak ditemukan anomali keamanan maupun blokir WAF."
+            f"Evaluasi forensik independen mengonfirmasi bahwa target merupakan {ent_desc} ({inspection_meta.get('root_domain')}). "
+            f"Domain resmi terdaftar memiliki reputasi sah, tidak ditemukan indikasi peniruan merek, maupun pemblokiran keamanan."
         )
         indicators = [
-            "Domain institusi pendidikan/pemerintahan resmi terdaftar",
-            f"Struktur subdomain teratur untuk layanan akademik/instansi ({inspection_meta.get('subdomain')})",
-            f"Respons server normal tanpa peringatan keamanan: {inspection_meta.get('page_title')[:55]}"
+            f"Domain terdaftar sah ({ent_desc})",
+            f"Struktur alamat dan subdomain wajar ({inspection_meta.get('subdomain')})",
+            f"Respons server normal: {inspection_meta.get('page_title')[:55]}"
         ]
         soc_eng = {
             "urgency_level": "Rendah",
             "impersonation": "Tidak Terindikasi (Resmi)",
             "credential_harvesting": False,
-            "potential_objective": "Layanan akademik, portal sistem informasi, atau administrasi resmi kampus"
+            "potential_objective": "Layanan / komunikasi resmi terdaftar"
         }
-    elif not is_live_ollama or not second_verdict:
-        if input_type == "email":
-            threat_triggers = [
-                "diblokir", "ditutup", "pembekuan", "penangguhan", "suspension", "suspended", "restricted",
-                "1x24 jam", "24 jam", "48 jam", "72 jam", "72 hours", "24 hours", "immediately", "urgent",
-                "kedaluwarsa", "saldo terpotong", "unduh apk", "install apk", "validate now", "verify now", "kode otp"
+    elif not is_live_ollama:
+        second_verdict = ml_pred
+        if ml_pred == "phishing":
+            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
+            explanation = (
+                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
+                "Hasil ini merupakan keputusan mandiri model Machine Learning berdasarkan pola fitur URL/teks yang terdeteksi."
+            )
+            indicators = [
+                "Evaluasi berbasis model Supervised Machine Learning",
+                "Fitur statistik & pola teks mengindikasikan risiko keamanan",
+                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
             ]
-            detected = [kw for kw in threat_triggers if kw in input_data.lower()]
-            if ml_pred == "phishing" or detected:
-                second_verdict = "phishing"
-                explanation = (
-                    f"Pemeriksaan konteks independen mengonfirmasi indikasi rekayasa sosial pada email ini. "
-                    f"Ditemukan unsur desakan atau ancaman ({', '.join(detected[:3]) if detected else 'pola mencurigakan'}) "
-                    f"yang lazim dipakai pelaku phishing untuk menekan korban."
-                )
-                indicators = [
-                    f"Indikator desakan / ancaman: {', '.join(detected)}" if detected else "Pola rekayasa sosial manipulatif",
-                    "Tekanan batas waktu darurat untuk memaksa tindakan",
-                    "Indikasi pengelabuan pengguna untuk penyerahan data / akses"
-                ]
-                soc_eng = {
-                    "urgency_level": "Tinggi",
-                    "impersonation": "Entitas Layanan Digital / Perbankan",
-                    "credential_harvesting": True,
-                    "potential_objective": "Pencurian kredensial akun pengguna & manipulasi verifikasi"
-                }
-            else:
-                second_verdict = "legitimate"
-                explanation = (
-                    "Pemeriksaan konteks independen mengonfirmasi bahwa pesan ini merupakan pemberitahuan resmi / pembaruan kebijakan yang bersifat informatif. "
-                    "Tidak ditemukan indikasi paksaan psikologis, ancaman pemblokiran akun, maupun upaya pengumpulan kata sandi (credential harvesting)."
-                )
-                indicators = [
-                    "Bahasa komunikasi terstruktur wajar untuk pengumuman resmi",
-                    "Tidak ada unsur pemaksaan waktu atau ancaman penutupan akun",
-                    "Tidak terindikasi pengumpulan kata sandi / data rahasia"
-                ]
-                soc_eng = {
-                    "urgency_level": "Rendah",
-                    "impersonation": "Tidak Terindikasi (Resmi)",
-                    "credential_harvesting": False,
-                    "potential_objective": "Pemberitahuan perubahan layanan / operasional resmi"
-                }
+            soc_eng = {
+                "urgency_level": "Sedang",
+                "impersonation": "Perlu Review Analis",
+                "credential_harvesting": inspection_meta.get("has_login_form", False),
+                "potential_objective": "Perlu verifikasi manual lanjutan"
+            }
         else:
-            # Fallback untuk URL
-            if ml_pred == "phishing":
-                second_verdict = "phishing"
-                explanation = (
-                    f"Pemeriksaan konteks independen mengonfirmasi indikasi ancaman pada tautan ini. "
-                    f"Ditemukan pola struktur dan karakteristik yang lazim dipakai untuk mengelabui pengguna agar menyerahkan data sensitif."
-                )
-                indicators = [
-                    "Pola penamaan domain / tautan menyerupai entitas populer",
-                    "Unsur manipulasi psikologis / pengalihan alamat web",
-                    "Indikasi pengumpulan data / akses login tanpa otentikasi resmi"
-                ]
-                soc_eng = {
-                    "urgency_level": "Tinggi",
-                    "impersonation": "Entitas Layanan Digital / Perbankan",
-                    "credential_harvesting": True,
-                    "potential_objective": "Pencurian kredensial akun pengguna & manipulasi verifikasi"
-                }
-            else:
-                second_verdict = "legitimate"
-                explanation = (
-                    f"Pemeriksaan konteks independen tidak menemukan anomali atau pola rekayasa sosial pada tautan ini. "
-                    f"Karakteristik konten konsisten dengan interaksi digital normal."
-                )
-                indicators = [
-                    "Struktur alamat dan identitas domain wajar",
-                    "Tidak ada indikasi paksaan atau pengelabuan formulir",
-                    "Pola komunikasi standar tanpa tanda social engineering"
-                ]
-                soc_eng = {
-                    "urgency_level": "Rendah",
-                    "impersonation": "Tidak Terindikasi",
-                    "credential_harvesting": False,
-                    "potential_objective": "Komunikasi normal / aktivitas web terpercaya"
-                }
+            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Karakteristik konsisten dengan interaksi aman."
+            explanation = (
+                "Layanan Analis AI Kontekstual (Qwen 2.5 7B) sedang offline. "
+                "Hasil ini merupakan keputusan mandiri model Machine Learning yang mengonfirmasi target aman tanpa indikator ancaman."
+            )
+            indicators = [
+                "Evaluasi mandiri model Supervised Machine Learning",
+                "Struktur domain / konten konsisten dengan pola aman",
+                "Verifikasi konteks mendalam (Qwen 2.5) dilewati (Layanan Offline)"
+            ]
+            soc_eng = {
+                "urgency_level": "Rendah",
+                "impersonation": "Tidak Terindikasi (Resmi)" if (is_inst or is_trusted) else "Tidak Terindikasi",
+                "credential_harvesting": False,
+                "potential_objective": "Aktivitas digital normal / komunikasi wajar"
+            }
+    elif not second_verdict:
+        second_verdict = "inconclusive"
+        explanation = "Model penalaran tidak memberikan keputusan konklusif."
+        indicators = ["Penalaran konteks tidak konklusif"]
+        soc_eng = {
+            "urgency_level": "Sedang",
+            "impersonation": "Tidak Teridentifikasi",
+            "credential_harvesting": False,
+            "potential_objective": "Perlu tinjauan manual"
+        }
 
-    # 3. Matriks Rekonsiliasi (Sesuai Bab 10 Dokumen Konsep)
-    if second_verdict == "inconclusive":
-        status_text = "Tidak Cukup Bukti (Review Manual Disarankan)"
-        treatment = "Nyatakan keterbatasan data dan prioritaskan verifikasi manual oleh analis."
-    elif ml_pred == "phishing" and second_verdict == "phishing":
-        status_text = "Sepakat — Indikasi Phishing Kuat"
-        treatment = "Tampilkan hasil dan bukti dari kedua tahap; catat batas analisis keamanan."
-    elif ml_pred == "phishing" and second_verdict == "legitimate":
-        status_text = "Tidak Sepakat (Perlu Review Manual)"
-        treatment = "Tandai untuk tinjauan manusia; bandingkan bukti statistik ML dan evaluasi LLM."
-    elif ml_pred == "legitimate" and second_verdict == "phishing":
-        status_text = "Peringatan: Potensi False Negative ML"
-        treatment = "Tampilkan peringatan keamanan; prioritaskan pemeriksaan manual berdasarkan temuan LLM."
-    else:  # legitimate & legitimate
-        status_text = "Sepakat — Tidak Ditemukan Indikator Kuat"
-        treatment = "Tampilkan 'tidak ditemukan bukti kuat'; hindari klaim keamanan mutlak."
+    # 3. Penetapan Status Keputusan (Mandiri ML vs Konsensus Dual-Engine)
+    if not is_live_ollama:
+        final_verdict = second_verdict if second_verdict in ["phishing", "legitimate"] else ml_pred
+        if final_verdict == "phishing":
+            status_text = "Keputusan Mandiri: Terindikasi Phishing (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Ditemukan pola mencurigakan pada target."
+        else:
+            status_text = "Keputusan Mandiri: Terindikasi Aman (ML Engine)"
+            treatment = "Pemeriksaan dilakukan secara mandiri oleh Machine Learning karena Analis AI sedang offline. Target terverifikasi aman."
+    else:
+        # Dual-Engine Live Consensus Matrix (Hanya jika Ollama Live Aktif)
+        if second_verdict == "inconclusive":
+            status_text = "Tidak Cukup Bukti (Review Manual Disarankan)"
+            treatment = "Nyatakan keterbatasan data dan prioritaskan verifikasi manual oleh analis."
+        elif ml_pred == "phishing" and second_verdict == "phishing":
+            status_text = "Sepakat (Konsensus Dual-Engine): Indikasi Phishing Kuat"
+            treatment = "Konsensus kedua mesin verifikasi mengonfirmasi ancaman phishing."
+        elif ml_pred == "phishing" and second_verdict == "legitimate":
+            status_text = "Tidak Sepakat (Perlu Review Manual)"
+            treatment = "Tandai untuk tinjauan manusia; bandingkan bukti statistik ML dan evaluasi LLM."
+        elif ml_pred == "legitimate" and second_verdict == "phishing":
+            status_text = "Peringatan: Potensi False Negative ML"
+            treatment = "Tampilkan peringatan keamanan; prioritaskan pemeriksaan manual berdasarkan temuan LLM."
+        else:  # legitimate & legitimate
+            status_text = "Sepakat (Konsensus Dual-Engine): Tidak Ditemukan Indikator Kuat"
+            treatment = "Konsensus kedua mesin verifikasi mengonfirmasi tidak ada indikator ancaman."
 
     return {
-        "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else "Qwen 2.5 7B (Engine Verifier)",
+        "source": "Qwen 2.5 7B (Ollama Live)" if is_live_ollama else "Supervised ML (Analis AI Sedang Offline)",
         "is_live_ollama": is_live_ollama,
+        "engine_mode": "hybrid_consensus" if is_live_ollama else "single_ml",
         "ollama_error_detail": ollama_error_detail,
         "model_name": model_name,
         "second_verdict": second_verdict,

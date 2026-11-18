@@ -67,6 +67,8 @@ def get_initial_seed_data():
                 "status_text": "Sepakat — Indikasi Phishing Kuat",
                 "qwen": {
                     "source": "Qwen 2.5 7B (Ollama Live)",
+                    "is_live_ollama": True,
+                    "engine_mode": "hybrid_consensus",
                     "second_verdict": "phishing",
                     "status_text": "Sepakat — Indikasi Phishing Kuat",
                     "treatment": "Tampilkan hasil dan bukti dari kedua tahap; catat batas analisis keamanan.",
@@ -109,6 +111,8 @@ def get_initial_seed_data():
                 "status_text": "Sepakat — Indikasi Phishing Kuat",
                 "qwen": {
                     "source": "Qwen 2.5 7B (Ollama Live)",
+                    "is_live_ollama": True,
+                    "engine_mode": "hybrid_consensus",
                     "second_verdict": "phishing",
                     "status_text": "Sepakat — Indikasi Phishing Kuat",
                     "treatment": "Tampilkan hasil dan bukti dari kedua tahap; catat batas analisis keamanan.",
@@ -151,6 +155,8 @@ def get_initial_seed_data():
                 "status_text": "Sepakat — Tidak Ditemukan Indikator Kuat",
                 "qwen": {
                     "source": "Qwen 2.5 7B (Ollama Live)",
+                    "is_live_ollama": True,
+                    "engine_mode": "hybrid_consensus",
                     "second_verdict": "legitimate",
                     "status_text": "Sepakat — Tidak Ditemukan Indikator Kuat",
                     "treatment": "Tampilkan 'tidak ditemukan bukti kuat'; hindari klaim keamanan mutlak.",
@@ -191,6 +197,8 @@ def get_initial_seed_data():
                 "status_text": "Sepakat — Indikasi Phishing Kuat",
                 "qwen": {
                     "source": "Qwen 2.5 7B (Ollama Live)",
+                    "is_live_ollama": True,
+                    "engine_mode": "hybrid_consensus",
                     "second_verdict": "phishing",
                     "status_text": "Sepakat — Indikasi Phishing Kuat",
                     "treatment": "Tampilkan hasil dan bukti dari kedua tahap; catat batas analisis keamanan.",
@@ -231,6 +239,8 @@ def get_initial_seed_data():
                 "status_text": "Sepakat — Tidak Ditemukan Indikator Kuat",
                 "qwen": {
                     "source": "Qwen 2.5 7B (Ollama Live)",
+                    "is_live_ollama": True,
+                    "engine_mode": "hybrid_consensus",
                     "second_verdict": "legitimate",
                     "status_text": "Sepakat — Tidak Ditemukan Indikator Kuat",
                     "treatment": "Tampilkan 'tidak ditemukan bukti kuat'; hindari klaim keamanan mutlak.",
@@ -844,6 +854,7 @@ def api_gmail_messages():
     force_demo = request.args.get("demo") == "1"
     category = request.args.get("category", "primary")
     search_q = request.args.get("q", "")
+    page_token = request.args.get("page_token", "").strip() or None
     try:
         limit = int(request.args.get("limit", 25))
     except (ValueError, TypeError):
@@ -851,14 +862,18 @@ def api_gmail_messages():
     
     if "google_creds" in session and not force_demo:
         creds = session["google_creds"]
-        emails = gmail_service.list_inbox_messages(creds, max_results=limit, category=category, search_query=search_q)
+        emails, next_page_token = gmail_service.list_inbox_messages(
+            creds, max_results=limit, category=category, search_query=search_q, page_token=page_token
+        )
         return jsonify({
             "success": True,
             "connected": True,
             "is_demo": False,
             "category": category,
             "user_email": session.get("google_user", "Pengguna"),
-            "messages": emails
+            "messages": emails,
+            "next_page_token": next_page_token,
+            "count": len(emails)
         })
     else:
         # Fallback ke Simulasi / Demo Mode
@@ -872,7 +887,9 @@ def api_gmail_messages():
             "is_demo": True,
             "category": category,
             "user_email": "Demo Sandbox Mode",
-            "messages": mock_emails
+            "messages": mock_emails,
+            "next_page_token": None,
+            "count": len(mock_emails)
         })
 
 @app.get("/api/gmail/message/<msg_id>")

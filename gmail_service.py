@@ -3,6 +3,7 @@ import json
 import base64
 import re
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from google_auth_oauthlib.flow import Flow
@@ -119,8 +120,46 @@ def get_user_email(creds_dict):
         print(f"[GMAIL] Failed to get user profile: {e}")
         return "Pengguna Gmail"
 
-def list_inbox_messages(creds_dict, max_results=25, category="primary", search_query=""):
-    """Mengambil daftar ringkas email terbaru dari Inbox pengguna dengan filter kategori dan pencarian."""
+def _clean_and_unwrap_url(raw_url: str) -> str:
+    """
+    Membersihkan URL dari noise tracking parameter dan unwrap base64 redirect wrappers (Customer.io, Sendgrid, dsb).
+    """
+    if not raw_url:
+        return ""
+    clean_url = raw_url.strip().rstrip(".,;!)]")
+    
+    # 1. Unwrap base64 redirect wrappers (seperti Customer.io email.gamma.app/e/c/<base64>)
+    try:
+        if "/e/c/" in clean_url:
+            token_part = clean_url.split("/e/c/")[1].split("/")[0]
+            rem = len(token_part) % 4
+            if rem > 0:
+                token_part += "=" * (4 - rem)
+            dec = base64.urlsafe_b64decode(token_part.encode("ascii")).decode("utf-8", errors="ignore")
+            parsed_json = json.loads(dec)
+            if "href" in parsed_json and parsed_json["href"].startswith(("http://", "https://")):
+                clean_url = parsed_json["href"]
+    except Exception:
+        pass
+        
+    # 2. Bersihkan query params tracking (utm_*, ajs_*, cio_*, dsb)
+    try:
+        p = urlparse(clean_url)
+        qs = parse_qs(p.query)
+        cleaned_qs = {}
+        for k, v in qs.items():
+            k_low = k.lower()
+            if not (k_low.startswith(("utm_", "ajs_", "cio_")) or k_low in ["mc_cid", "mc_eid", "fbclid", "gclid", "_ga"]):
+                cleaned_qs[k] = v
+        new_query = urlencode(cleaned_qs, doseq=True)
+        clean_url = urlunparse((p.scheme, p.netloc, p.path, p.params, new_query, p.fragment))
+    except Exception:
+        pass
+        
+    return clean_url
+
+def list_inbox_messages(creds_dict, max_results=30, category="primary", search_query="", page_token=None):
+    """Mengambil daftar ringkas email terbaru dari Inbox pengguna dengan filter kategori, pencarian, dan pagination."""
     try:
         creds = get_credentials_from_dict(creds_dict)
         service = build("gmail", "v1", credentials=creds, cache_discovery=False)
@@ -143,22 +182,28 @@ def list_inbox_messages(creds_dict, max_results=25, category="primary", search_q
             
         full_query = " ".join(query_parts)
         
+        list_kwargs = {
+            "userId": "me",
+            "maxResults": min(max(max_results, 5), 50),
+            "q": full_query
+        }
+        if page_token and page_token.strip():
+            list_kwargs["pageToken"] = page_token.strip()
+            
         # Ambil daftar ID pesan
-        res = service.users().messages().list(
-            userId="me",
-            maxResults=min(max(max_results, 5), 50),
-            q=full_query
-        ).execute()
+        res = service.users().messages().list(**list_kwargs).execute()
         messages_meta = res.get("messages", [])
+        next_page_token = res.get("nextPageToken", None)
         
         # Fallback jika category:primary menghasilkan 0 (misal Gmail user tidak pakai tab atau semua ada di default)
-        if not messages_meta and ("category:primary" in full_query) and not search_query:
+        if not messages_meta and not page_token and ("category:primary" in full_query) and not search_query:
             res = service.users().messages().list(
                 userId="me",
                 maxResults=min(max(max_results, 5), 50),
                 q="in:inbox"
             ).execute()
             messages_meta = res.get("messages", [])
+            next_page_token = res.get("nextPageToken", None)
         
         emails = []
         for m in messages_meta:
@@ -192,13 +237,13 @@ def list_inbox_messages(creds_dict, max_results=25, category="primary", search_q
                 "date": short_date,
                 "snippet": detail.get("snippet", "")
             })
-        return emails
+        return emails, next_page_token
     except Exception as e:
         print(f"[GMAIL] Error listing messages: {e}")
-        return []
+        return [], None
 
 def _extract_body_and_links(payload):
-    """Mengekstrak plain text, HTML, dan hyperlink dari payload pesan MIME Gmail."""
+    """Mengekstrak teks email bersih, mengeliminasi noise markdown, dan mengekstrak hyperlink yang rapi."""
     text_parts = []
     html_parts = []
     
@@ -225,28 +270,44 @@ def _extract_body_and_links(payload):
     body_text = "\n".join(text_parts).strip()
     html_text = "\n".join(html_parts).strip()
     
-    # Kumpulkan seluruh tautan/links yang ditemukan (baik di plain text maupun tag <a href>)
     embedded_urls = []
     
+    # 1. Ekstrak tautan & teks dari HTML jika tersedia
     if html_text:
         try:
             soup = BeautifulSoup(html_text, "html.parser")
+            for tag in soup(["script", "style", "noscript", "svg", "head"]):
+                tag.decompose()
+                
             for a_tag in soup.find_all("a", href=True):
                 href = a_tag["href"].strip()
-                if href.startswith(("http://", "https://")) and href not in embedded_urls:
-                    embedded_urls.append(href)
-            # Jika plain text kosong, ambil teks dari HTML
-            if not body_text:
-                body_text = soup.get_text(separator="\n", strip=True)
+                if href.startswith(("http://", "https://")):
+                    clean_u = _clean_and_unwrap_url(href)
+                    if not any(clean_u.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]):
+                        if clean_u not in embedded_urls:
+                            embedded_urls.append(clean_u)
+                            
+            # Jika plain text tidak ada atau banyak noise, gunakan teks dari HTML yang terstruktur
+            html_extracted_text = soup.get_text(separator="\n", strip=True)
+            if html_extracted_text and (not body_text or len(html_extracted_text) >= len(body_text) * 0.4):
+                body_text = html_extracted_text
         except Exception:
             pass
 
-    # Ekstrak URL via Regex jika masih ada tautan mentah di body text
+    # 2. Ekstrak URL via Regex jika masih ada tautan tambahan
     url_regex = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
     for raw_url in url_regex.findall(body_text):
-        clean_u = raw_url.strip().rstrip(".,;!)]")
-        if clean_u not in embedded_urls:
+        clean_u = _clean_and_unwrap_url(raw_url)
+        if clean_u and clean_u not in embedded_urls:
             embedded_urls.append(clean_u)
+
+    # 3. Bersihkan noise inline markdown URL seperti "( https://... )" dari bacaan teks
+    if body_text:
+        body_text = re.sub(r'\(\s*https?://[^\s)]+\s*\)', '', body_text)
+        body_text = re.sub(r'!\[.*?\]', '', body_text)
+        body_text = re.sub(r'\[(.*?)\]', r'\1', body_text)
+        body_text = re.sub(r'[ \t]+', ' ', body_text)
+        body_text = re.sub(r'\n{3,}', '\n\n', body_text).strip()
             
     return body_text, embedded_urls
 
@@ -285,10 +346,22 @@ def get_email_full_content(creds_dict, message_id):
             cleaned_body
         ]
         
-        if urls:
+        # Saring URL unik dan relevan (maksimal 5 tautan terpenting tanpa noise duplikasi tracking)
+        distinct_urls = []
+        seen_domains_paths = set()
+        for u in urls:
+            u_clean = _clean_and_unwrap_url(u)
+            if u_clean and u_clean not in distinct_urls:
+                p = urlparse(u_clean)
+                dp_key = f"{p.netloc}{p.path}"
+                if dp_key not in seen_domains_paths:
+                    seen_domains_paths.add(dp_key)
+                    distinct_urls.append(u_clean)
+                    
+        if distinct_urls:
             lines.append("")
             lines.append("Tautan Terdeteksi di Pesan:")
-            for u in urls[:5]:
+            for u in distinct_urls[:5]:
                 lines.append(f"- {u}")
                 
         formatted_content = "\n".join(lines)
@@ -298,7 +371,7 @@ def get_email_full_content(creds_dict, message_id):
             "sender": sender,
             "date": date,
             "body": cleaned_body,
-            "urls": urls,
+            "urls": distinct_urls[:5],
             "formatted_text": formatted_content
         }
     except Exception as e:
