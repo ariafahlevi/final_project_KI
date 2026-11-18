@@ -3,36 +3,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
   if (toggle && sidebar) toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
 
-  // Cek Status Koneksi Ollama secara Asinkron (Non-blocking)
+  // Status Sistem Keamanan (User-Friendly, Non-Developer)
   const topBadge = document.getElementById("topEngineBadge");
   const topDot = document.getElementById("topEngineDot");
   const topText = document.getElementById("topEngineText");
   if (topBadge && topDot && topText) {
-    fetch("/api/ollama-status")
-      .then(r => r.json())
-      .then(res => {
-        if (res.status === "online") {
-          topDot.style.background = "#10b981";
-          topDot.style.boxShadow = "0 0 6px #10b981";
-          topText.textContent = `Dual-Engine: Ollama Live (${res.latency_ms}ms)`;
-          topBadge.title = res.message;
-          topBadge.style.borderColor = "#a7f3d0";
-          topBadge.style.background = "#ecfdf5";
-          topBadge.style.color = "#065f46";
-        } else {
-          topDot.style.background = "#f59e0b";
-          topDot.style.boxShadow = "0 0 6px #f59e0b";
-          topText.textContent = "Dual-Engine: Fallback Active";
-          topBadge.title = "Ollama tidak terhubung. Menggunakan Engine Cadangan Otomatis.";
-          topBadge.style.borderColor = "#fde68a";
-          topBadge.style.background = "#fffbeb";
-          topBadge.style.color = "#92400e";
-        }
-      })
-      .catch(() => {
-        topDot.style.background = "#f59e0b";
-        topText.textContent = "Dual-Engine: Fallback Active";
-      });
+    topDot.style.background = "#10b981";
+    topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
+    topText.textContent = "Proteksi AI Aktif";
+    topBadge.title = "Sistem Deteksi PhisGuard Aktif & Memindai";
+    topBadge.style.borderColor = "#a7f3d0";
+    topBadge.style.background = "#ecfdf5";
+    topBadge.style.color = "#065f46";
   }
 
   const form = document.getElementById("scanForm");

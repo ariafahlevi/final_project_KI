@@ -119,15 +119,46 @@ def get_user_email(creds_dict):
         print(f"[GMAIL] Failed to get user profile: {e}")
         return "Pengguna Gmail"
 
-def list_inbox_messages(creds_dict, max_results=8):
-    """Mengambil daftar ringkas email terbaru dari Inbox pengguna."""
+def list_inbox_messages(creds_dict, max_results=25, category="primary", search_query=""):
+    """Mengambil daftar ringkas email terbaru dari Inbox pengguna dengan filter kategori dan pencarian."""
     try:
         creds = get_credentials_from_dict(creds_dict)
         service = build("gmail", "v1", credentials=creds, cache_discovery=False)
         
-        # Ambil daftar ID pesan di INBOX
-        res = service.users().messages().list(userId="me", maxResults=max_results, q="in:inbox").execute()
+        # Susun query pencarian Gmail sesuai kategori
+        query_parts = ["in:inbox"]
+        cat_lower = (category or "").lower().strip()
+        if cat_lower in ["primary", "utama"]:
+            query_parts.append("category:primary")
+        elif cat_lower in ["promotions", "promosi"]:
+            query_parts.append("category:promotions")
+        elif cat_lower in ["social", "sosial"]:
+            query_parts.append("category:social")
+        elif cat_lower in ["updates", "update"]:
+            query_parts.append("category:updates")
+        # Jika category == "all" atau kosong, tidak dibatasi kategori tertentu
+        
+        if search_query and search_query.strip():
+            query_parts.append(search_query.strip())
+            
+        full_query = " ".join(query_parts)
+        
+        # Ambil daftar ID pesan
+        res = service.users().messages().list(
+            userId="me",
+            maxResults=min(max(max_results, 5), 50),
+            q=full_query
+        ).execute()
         messages_meta = res.get("messages", [])
+        
+        # Fallback jika category:primary menghasilkan 0 (misal Gmail user tidak pakai tab atau semua ada di default)
+        if not messages_meta and ("category:primary" in full_query) and not search_query:
+            res = service.users().messages().list(
+                userId="me",
+                maxResults=min(max(max_results, 5), 50),
+                q="in:inbox"
+            ).execute()
+            messages_meta = res.get("messages", [])
         
         emails = []
         for m in messages_meta:
@@ -150,7 +181,6 @@ def list_inbox_messages(creds_dict, max_results=8):
                 elif name == "date":
                     date = h.get("value", "")
             
-            # Format tanggal sederhana jika memungkinkan
             short_date = date.split("+")[0].split("-")[0].strip() if date else ""
             if len(short_date) > 22:
                 short_date = short_date[:22]

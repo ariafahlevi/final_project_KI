@@ -842,24 +842,35 @@ def api_gmail_status():
 def api_gmail_messages():
     """Mengambil daftar ringkas email inbox pengguna (atau mode demo jika belum login)."""
     force_demo = request.args.get("demo") == "1"
+    category = request.args.get("category", "primary")
+    search_q = request.args.get("q", "")
+    try:
+        limit = int(request.args.get("limit", 25))
+    except (ValueError, TypeError):
+        limit = 25
     
     if "google_creds" in session and not force_demo:
         creds = session["google_creds"]
-        emails = gmail_service.list_inbox_messages(creds, max_results=8)
+        emails = gmail_service.list_inbox_messages(creds, max_results=limit, category=category, search_query=search_q)
         return jsonify({
             "success": True,
             "connected": True,
             "is_demo": False,
+            "category": category,
             "user_email": session.get("google_user", "Pengguna"),
             "messages": emails
         })
     else:
         # Fallback ke Simulasi / Demo Mode
         mock_emails = gmail_service.get_mock_emails()
+        if search_q:
+            q_low = search_q.lower()
+            mock_emails = [m for m in mock_emails if q_low in m["subject"].lower() or q_low in m["sender"].lower() or q_low in m["snippet"].lower()]
         return jsonify({
             "success": True,
             "connected": False,
             "is_demo": True,
+            "category": category,
             "user_email": "Demo Sandbox Mode",
             "messages": mock_emails
         })
@@ -871,20 +882,31 @@ def api_gmail_message_detail(msg_id):
         mock_emails = gmail_service.get_mock_emails()
         found = next((m for m in mock_emails if m["id"] == msg_id), None)
         if found:
+            data_dict = {
+                "subject": found["subject"],
+                "sender": found["sender"],
+                "date": found["date"],
+                "formatted_text": found["formatted_text"]
+            }
             return jsonify({
                 "success": True,
-                "data": {
-                    "subject": found["subject"],
-                    "sender": found["sender"],
-                    "date": found["date"],
-                    "formatted_text": found["formatted_text"]
-                }
+                "data": data_dict,
+                **data_dict
             })
         return jsonify({"success": False, "error": "Email demo tidak ditemukan"}), 404
 
     creds = session["google_creds"]
     detail = gmail_service.get_email_full_content(creds, msg_id)
-    return jsonify(detail)
+    if detail.get("success"):
+        return jsonify({
+            "success": True,
+            "data": detail,
+            **detail
+        })
+    return jsonify({
+        "success": False,
+        "error": detail.get("error", "Gagal mengekstrak konten email dari Gmail API")
+    }), 400
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

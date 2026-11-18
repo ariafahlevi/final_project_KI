@@ -1,104 +1,140 @@
 {% extends "base.html" %}
-{% block title %}Riwayat Pemeriksaan · PhishGuard AI{% endblock %}
+{% block title %}Riwayat Pemeriksaan · PhisGuard AI{% endblock %}
 {% block crumb %}Riwayat{% endblock %}
 {% block content %}
-<div class="page-intro" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+<div class="page-intro" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
   <div>
-    <div class="eyebrow">AUDIT TRAIL & LOGS</div>
-    <h1>Riwayat <span>pemeriksaan keamanan.</span></h1>
-    <p class="muted">Daftar tautan URL dan pesan email yang telah diuji oleh sistem pertahanan berlapis PhisGuard.</p>
+    <div class="eyebrow" style="letter-spacing:1px;font-size:10px;font-weight:700;color:#0f766e;">LOG PEMERIKSAAN & AUDIT</div>
+    <h1 style="font-size:24px;margin:3px 0 4px 0;font-weight:700;color:#0f172a;">Riwayat <span style="color:#0f766e;">Pemeriksaan Keamanan</span></h1>
+    <p class="muted" style="font-size:12px;margin:0;color:#64748b;">Daftar tautan URL dan pesan email yang telah diuji oleh sistem pertahanan berlapis PhisGuard.</p>
   </div>
   <div style="display:flex;gap:8px;">
     <form action="{{ url_for('reset_seed_history') }}" method="POST" style="margin:0;">
-      <button class="btn" type="submit" style="background:#eaf5ee;color:#2e6659;font-size:11px;padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid #c8e7d9;">
-        ↺ Reset Sampel Benchmark
+      <button class="btn" type="submit" style="background:#ffffff;color:#334155;font-size:11.5px;padding:7px 13px;border-radius:6px;cursor:pointer;border:1px solid #cbd5e1;box-shadow:0 1px 2px rgba(0,0,0,0.03);font-weight:600;">
+        ↻ Reset Sampel Benchmark
       </button>
     </form>
   </div>
 </div>
 
-<!-- Bar Statistik Ringkas -->
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-  <div style="padding:8px 14px;background:#fff;border:1px solid #d4ece1;border-radius:8px;font-size:12px;">
-    Total Audit: <b style="color:#183b32;">{{ stats.total }}</b>
+<!-- Ringkasan Statistik Modern (Tanpa Border Slop) -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px;margin-bottom:18px;">
+  <div style="padding:14px 18px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+    <span style="color:#64748b;font-size:11px;font-weight:600;display:block;text-transform:uppercase;letter-spacing:0.5px;">Total Pemeriksaan</span>
+    <b style="font-size:22px;color:#0f172a;line-height:1.2;display:block;margin-top:4px;">{{ stats.total }}</b>
   </div>
-  <div style="padding:8px 14px;background:#fff;border:1px solid #f3c2c7;border-radius:8px;font-size:12px;">
-    Terindikasi Phishing: <b style="color:#b33946;">{{ stats.phish_count }}</b> ({{ stats.phish_pct }}%)
+  <div style="padding:14px 18px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+    <span style="color:#b91c1c;font-size:11px;font-weight:600;display:block;text-transform:uppercase;letter-spacing:0.5px;">Terindikasi Phishing</span>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;">
+      <b style="font-size:22px;color:#b91c1c;line-height:1.2;">{{ stats.phish_count }}</b>
+      <span style="font-size:12px;color:#dc2626;font-weight:600;">({{ stats.phish_pct }}%)</span>
+    </div>
   </div>
-  <div style="padding:8px 14px;background:#fff;border:1px solid #b8dfcd;border-radius:8px;font-size:12px;">
-    Terindikasi Aman: <b style="color:#2e6659;">{{ stats.safe_count }}</b> ({{ stats.safe_pct }}%)
+  <div style="padding:14px 18px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+    <span style="color:#15803d;font-size:11px;font-weight:600;display:block;text-transform:uppercase;letter-spacing:0.5px;">Terindikasi Aman</span>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;">
+      <b style="font-size:22px;color:#15803d;line-height:1.2;">{{ stats.safe_count }}</b>
+      <span style="font-size:12px;color:#16a34a;font-weight:600;">({{ stats.safe_pct }}%)</span>
+    </div>
   </div>
 </div>
 
-<div class="panel recent-panel">
+<div class="panel recent-panel" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.02);">
   <form id="historyForm" method="POST">
-    <div class="panel-heading" style="flex-wrap:wrap;gap:10px;">
+    
+    <!-- Header Tabel & Filter Bar -->
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:#f8fafc;">
       <div>
-        <h3>Daftar Log Audit Sesi Berjalan</h3>
-        <p class="muted">Pilih baris untuk menghapus sebagian, atau hapus seluruh riwayat</p>
+        <h3 style="margin:0 0 2px 0;font-size:14px;color:#0f172a;font-weight:700;">Daftar Log Audit Sesi Berjalan</h3>
+        <p class="muted" style="margin:0;font-size:11.5px;color:#64748b;">Kelola arsip hasil pemeriksaan, unduh berkas forensik, atau filter rekaman.</p>
       </div>
       
       {% if history and history|length > 0 %}
-      <!-- Tombol Aksi Penghapusan (Dua Pilihan Sesuai Permintaan) -->
       <div style="display:flex;gap:8px;align-items:center;">
-        <button type="submit" id="btnDeleteSelected" formaction="{{ url_for('delete_selected_history') }}" class="btn" style="background:#fff0f2;color:#b33946;border:1px solid #f3c2c7;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;opacity:0.5;" disabled onclick="return confirm('Hapus item yang dipilih?');">
+        <button type="submit" id="btnDeleteSelected" formaction="{{ url_for('delete_selected_history') }}" class="btn" style="background:#ffffff;color:#b91c1c;border:1px solid #fecaca;font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer;opacity:0.5;font-weight:600;" disabled onclick="return confirm('Hapus item riwayat yang dipilih?');">
           Hapus Terpilih (<span id="selectCount">0</span>)
         </button>
 
-        <button type="submit" formaction="{{ url_for('clear_history') }}" class="btn" style="background:#feebee;color:#c96570;font-size:11px;padding:7px 12px;border-radius:8px;cursor:pointer;" onclick="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat pemeriksaan?');">
-          Hapus Semua Riwayat
+        <button type="submit" formaction="{{ url_for('clear_history') }}" class="btn" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;" onclick="return confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat pemeriksaan?');">
+          Hapus Semua
         </button>
       </div>
       {% endif %}
     </div>
 
     {% if history and history|length > 0 %}
-    <div class="table-wrap">
-      <table>
+    <!-- Filter Kategori & Pencarian Cepat -->
+    <div style="padding:10px 20px;background:#ffffff;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:600;color:#64748b;margin-right:2px;">Filter:</span>
+        <button type="button" class="hist-filter-pill active" data-filter="all">Semua ({{ history|length }})</button>
+        <button type="button" class="hist-filter-pill" data-filter="phishing">Phishing</button>
+        <button type="button" class="hist-filter-pill" data-filter="legitimate">Aman</button>
+        <button type="button" class="hist-filter-pill" data-filter="EMAIL">Email</button>
+        <button type="button" class="hist-filter-pill" data-filter="URL">URL</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="position:relative;">
+          <input type="text" id="historySearch" placeholder="Cari target atau tanggal..." style="padding:5px 10px 5px 28px;border:1px solid #cbd5e1;border-radius:6px;font-size:11.5px;outline:none;width:200px;font-family:'DM Sans',sans-serif;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="position:absolute;left:8px;top:8px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabel Riwayat Terpaginasi -->
+    <div class="table-wrap" style="margin:0;">
+      <table style="width:100%;border-collapse:collapse;margin:0;">
         <thead>
-          <tr>
-            <th style="width:36px;text-align:center;">
-              <input type="checkbox" id="selectAll" title="Pilih Semua" style="cursor:pointer;">
+          <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:11.5px;color:#475569;text-align:left;">
+            <th style="width:36px;text-align:center;padding:10px;">
+              <input type="checkbox" id="selectAll" title="Pilih Semua di Halaman Ini" style="cursor:pointer;">
             </th>
-            <th>Tipe</th>
-            <th>Target yang Diuji</th>
-            <th>Waktu Audit</th>
-            <th>Hasil ML</th>
-            <th>Verifikasi Qwen 2.5 7B</th>
-            <th style="text-align:right;">Aksi</th>
+            <th style="padding:10px 12px;font-weight:600;">Tipe</th>
+            <th style="padding:10px 12px;font-weight:600;">Target yang Diuji</th>
+            <th style="padding:10px 12px;font-weight:600;">Waktu Audit</th>
+            <th style="padding:10px 12px;font-weight:600;">Hasil Deteksi</th>
+            <th style="padding:10px 12px;font-weight:600;">Verifikasi AI Mendalam</th>
+            <th style="text-align:right;padding:10px 16px;font-weight:600;">Aksi</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="historyTableBody">
           {% for item in history %}
-          <tr>
-            <td style="text-align:center;">
+          <tr class="history-row" data-type="{{ item.type }}" data-prediction="{{ item.prediction }}" data-text="{{ item.url|lower }} {{ item.time|lower }}" style="border-bottom:1px solid #f1f5f9;font-size:12px;transition:background 0.15s ease;">
+            <td style="text-align:center;padding:11px 10px;">
               <input type="checkbox" name="selected_ids" value="{{ item.analysis_id }}" class="row-select" style="cursor:pointer;">
             </td>
-            <td>
-              <span class="tag" style="background:{{ '#eaf5ee' if item.type == 'URL' else '#edf4ff' }};color:{{ '#2e6659' if item.type == 'URL' else '#2b5ea7' }};font-size:10px;font-weight:700;">
+            <td style="padding:11px 12px;">
+              <span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:{{ '#ecfdf5' if item.type == 'URL' else '#eff6ff' }};color:{{ '#065f46' if item.type == 'URL' else '#1e40af' }};border:1px solid {{ '#a7f3d0' if item.type == 'URL' else '#bfdbfe' }};">
                 {{ item.type }}
               </span>
             </td>
-            <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:12px;">
+            <td style="padding:11px 12px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:11.5px;color:#0f172a;" title="{{ item.url }}">
               {{ item.url }}
             </td>
-            <td>{{ item.time }}</td>
-            <td>
+            <td style="padding:11px 12px;color:#64748b;white-space:nowrap;font-size:11.5px;">{{ item.time }}</td>
+            <td style="padding:11px 12px;white-space:nowrap;">
               {% if item.prediction == 'phishing' %}
-              <span class="tag danger-tag">Phishing ({{ item.confidence }}%)</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#ef4444;"></span>
+                Phishing ({{ item.confidence }}%)
+              </span>
               {% else %}
-              <span class="tag safe-tag">Aman ({{ item.confidence }}%)</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span>
+                Aman ({{ item.confidence }}%)
+              </span>
               {% endif %}
             </td>
-            <td>
-              <small style="color:#2e6659;font-weight:600;">{{ item.qwen_status }}</small>
+            <td style="padding:11px 12px;font-size:11px;color:#334155;font-weight:600;">
+              {{ item.qwen_status }}
             </td>
-            <td style="text-align:right;">
+            <td style="text-align:right;padding:11px 16px;white-space:nowrap;">
               <div style="display:inline-flex;gap:6px;">
-                <a href="{{ url_for('show_result_by_id', aid=item.analysis_id) }}" class="btn" style="padding:5px 10px;font-size:10.5px;background:#eaf5ee;color:#2e6659;border-radius:6px;text-decoration:none;font-weight:700;">
-                  Lihat Hasil →
+                <a href="{{ url_for('show_result_by_id', aid=item.analysis_id) }}" style="padding:4px 9px;font-size:11px;background:#ffffff;color:#0f766e;border:1px solid #cbd5e1;border-radius:5px;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,0.02);">
+                  Detail →
                 </a>
-                <a href="{{ url_for('download_pdf_report_by_id', aid=item.analysis_id) }}" class="btn" style="padding:5px 10px;font-size:10.5px;background:#1b4d3e;color:#fff;border-radius:6px;text-decoration:none;font-weight:700;">
+                <a href="{{ url_for('download_pdf_report_by_id', aid=item.analysis_id) }}" style="padding:4px 8px;font-size:11px;background:#1b4d3e;color:#ffffff;border-radius:5px;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
                   PDF
                 </a>
               </div>
@@ -108,14 +144,28 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Paginasi Bersih & Kontrol Halaman -->
+    <div style="padding:12px 20px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div id="paginationInfo" style="font-size:12px;color:#64748b;font-weight:500;">
+        Menampilkan 1–8 dari {{ history|length }} pemeriksaan
+      </div>
+
+      <div style="display:flex;align-items:center;gap:4px;" id="paginationControls">
+        <!-- Tombol paginasi akan dirender oleh JavaScript -->
+      </div>
+    </div>
+
     {% else %}
-    <div class="empty-state">
-      <div style="width:36px;height:36px;margin:0 auto 10px;color:#8bb99e;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <h3 style="margin:10px 0 4px 0;">Riwayat Pemeriksaan Kosong</h3>
-      <p class="muted" style="margin-bottom:16px;">Belum ada target yang dianalisis atau riwayat baru saja dibersihkan.</p>
+    <div class="empty-state" style="padding:48px 20px;text-align:center;">
+      <div style="width:40px;height:40px;margin:0 auto 12px;color:#94a3b8;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <h3 style="margin:0 0 6px 0;font-size:15px;color:#0f172a;font-weight:700;">Riwayat Pemeriksaan Masih Kosong</h3>
+      <p class="muted" style="margin:0 0 18px 0;font-size:12px;color:#64748b;">Belum ada target yang dianalisis pada sesi ini atau log baru saja dibersihkan.</p>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <a class="btn btn-primary" href="{{ url_for('scanner') }}">Mulai Scan Target Sekarang →</a>
-        <button type="submit" formaction="{{ url_for('reset_seed_history') }}" class="btn" style="background:#eaf5ee;color:#2e6659;border:1px solid #c8e7d9;">
+        <a class="btn btn-primary" href="{{ url_for('scanner') }}" style="background:#1b4d3e;color:#fff;font-size:11.5px;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Mulai Scan Target</a>
+        <button type="submit" formaction="{{ url_for('reset_seed_history') }}" class="btn" style="background:#ffffff;color:#334155;border:1px solid #cbd5e1;font-size:11.5px;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;">
           Muat Sampel Benchmark
         </button>
       </div>
@@ -124,12 +174,162 @@
   </form>
 </div>
 
+<style>
+.hist-filter-pill {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.hist-filter-pill:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.hist-filter-pill.active {
+  background: #1b4d3e;
+  border-color: #1b4d3e;
+  color: #ffffff;
+}
+.page-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 28px;
+  text-align: center;
+}
+.page-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.page-btn.active {
+  background: #1b4d3e;
+  border-color: #1b4d3e;
+  color: #ffffff;
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  const rows = Array.from(document.querySelectorAll(".history-row"));
   const selectAll = document.getElementById("selectAll");
-  const rowCheckboxes = document.querySelectorAll(".row-select");
   const btnDeleteSelected = document.getElementById("btnDeleteSelected");
   const selectCount = document.getElementById("selectCount");
+  const paginationControls = document.getElementById("paginationControls");
+  const paginationInfo = document.getElementById("paginationInfo");
+  const searchInput = document.getElementById("historySearch");
+  const filterPills = document.querySelectorAll(".hist-filter-pill");
+
+  const pageSize = 8;
+  let currentPage = 1;
+  let activeFilter = "all";
+  let activeSearch = "";
+
+  function getMatchingRows() {
+    return rows.filter(row => {
+      const type = row.getAttribute("data-type");
+      const pred = row.getAttribute("data-prediction");
+      const text = row.getAttribute("data-text") || "";
+
+      // Cek filter kategori
+      let matchFilter = true;
+      if (activeFilter === "phishing") matchFilter = (pred === "phishing");
+      else if (activeFilter === "legitimate") matchFilter = (pred === "legitimate");
+      else if (activeFilter === "EMAIL") matchFilter = (type === "EMAIL");
+      else if (activeFilter === "URL") matchFilter = (type === "URL");
+
+      // Cek pencarian teks
+      let matchSearch = true;
+      if (activeSearch) {
+        matchSearch = text.includes(activeSearch);
+      }
+
+      return matchFilter && matchSearch;
+    });
+  }
+
+  function renderPage() {
+    const matching = getMatchingRows();
+    const totalMatching = matching.length;
+    const totalPages = Math.max(1, Math.ceil(totalMatching / pageSize));
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    // Sembunyikan semua row
+    rows.forEach(r => r.style.display = "none");
+
+    // Tampilkan hanya baris untuk halaman aktif
+    const startIdx = (currentPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const visibleRows = matching.slice(startIdx, endIdx);
+
+    visibleRows.forEach(r => r.style.display = "");
+
+    // Update info teks
+    if (paginationInfo) {
+      if (totalMatching === 0) {
+        paginationInfo.textContent = "Tidak ada rekaman yang cocok dengan filter.";
+      } else {
+        const fromNum = startIdx + 1;
+        const toNum = Math.min(endIdx, totalMatching);
+        paginationInfo.textContent = `Menampilkan ${fromNum}–${toNum} dari ${totalMatching} pemeriksaan`;
+      }
+    }
+
+    // Render tombol paginasi
+    if (paginationControls) {
+      paginationControls.innerHTML = "";
+
+      if (totalPages > 1) {
+        // Tombol Sebelumnya
+        const prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.className = "page-btn";
+        prevBtn.textContent = "‹ Sebelumnya";
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => { currentPage--; renderPage(); };
+        paginationControls.appendChild(prevBtn);
+
+        // Angka halaman
+        for (let p = 1; p <= totalPages; p++) {
+          const pBtn = document.createElement("button");
+          pBtn.type = "button";
+          pBtn.className = "page-btn" + (p === currentPage ? " active" : "");
+          pBtn.textContent = p;
+          pBtn.onclick = () => { currentPage = p; renderPage(); };
+          paginationControls.appendChild(pBtn);
+        }
+
+        // Tombol Berikutnya
+        const nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "page-btn";
+        nextBtn.textContent = "Berikutnya ›";
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => { currentPage++; renderPage(); };
+        paginationControls.appendChild(nextBtn);
+      }
+    }
+
+    updateSelectedCount();
+  }
 
   function updateSelectedCount() {
     const checked = document.querySelectorAll(".row-select:checked");
@@ -144,21 +344,59 @@ document.addEventListener("DOMContentLoaded", () => {
         btnDeleteSelected.style.opacity = "0.5";
       }
     }
+    
+    // Cek status selectAll terhadap baris yang sedang terlihat
+    const visibleCheckboxes = Array.from(document.querySelectorAll(".history-row"))
+      .filter(r => r.style.display !== "none")
+      .map(r => r.querySelector(".row-select"));
+    
     if (selectAll) {
-      selectAll.checked = count > 0 && count === rowCheckboxes.length;
+      const allVisChecked = visibleCheckboxes.length > 0 && visibleCheckboxes.every(cb => cb && cb.checked);
+      selectAll.checked = allVisChecked;
     }
   }
 
+  // Event listener Select All
   if (selectAll) {
     selectAll.addEventListener("change", (e) => {
-      rowCheckboxes.forEach(cb => cb.checked = e.target.checked);
+      const visibleCheckboxes = Array.from(document.querySelectorAll(".history-row"))
+        .filter(r => r.style.display !== "none")
+        .map(r => r.querySelector(".row-select"));
+      
+      visibleCheckboxes.forEach(cb => {
+        if (cb) cb.checked = e.target.checked;
+      });
       updateSelectedCount();
     });
   }
 
-  rowCheckboxes.forEach(cb => {
+  // Event listener checkbox individu
+  document.querySelectorAll(".row-select").forEach(cb => {
     cb.addEventListener("change", updateSelectedCount);
   });
+
+  // Event filter pills
+  filterPills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      filterPills.forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      activeFilter = pill.getAttribute("data-filter");
+      currentPage = 1;
+      renderPage();
+    });
+  });
+
+  // Event search input
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      activeSearch = e.target.value.toLowerCase().trim();
+      currentPage = 1;
+      renderPage();
+    });
+  }
+
+  // Render halaman pertama
+  renderPage();
 });
 </script>
 {% endblock %}
