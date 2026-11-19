@@ -1,7 +1,18 @@
 document.addEventListener("DOMContentLoaded", () => {
   const toggle = document.getElementById("menuToggle");
   const sidebar = document.getElementById("sidebar");
-  if (toggle && sidebar) toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
+  if (toggle && sidebar) {
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sidebar.classList.toggle("open");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (sidebar.classList.contains("open") && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
+        sidebar.classList.remove("open");
+      }
+    });
+  }
 
   // Dynamic Model Name State
   let globalModelName = "Qwen 2.5 7B";

@@ -69,14 +69,24 @@
         localStorage.setItem("phisguard_gmail_connected", Date.now().toString());
       } catch (e) {}
 
-      // 4. Tutup popup setelah 600ms, atau fallback redirect jika dibuka di tab biasa
+      // 4. Tutup popup setelah 600ms, atau fallback redirect ke halaman scan
       setTimeout(() => {
+        const targetUrl = window.location.origin + "/scan?tab=email&gmail=connected";
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.location.href = targetUrl;
+            window.close();
+            return;
+          }
+        } catch (e) {}
+
         try {
           window.close();
         } catch (e) {}
-        // Jika window.close() dicegah browser (misal user buka langsung sebagai tab biasa):
+
+        // Jika window.close() dicegah browser (misal di smartphone / mobile):
         setTimeout(() => {
-          window.location.href = "http://127.0.0.1:5000/scan?tab=email&gmail=connected";
+          window.location.href = targetUrl;
         }, 300);
       }, 600);
     }

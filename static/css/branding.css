@@ -200,3 +200,102 @@ svg.spin-icon {
     opacity: 0.75;
   }
 }
+
+/* ============================================================== */
+/* MOBILE RESPONSIVE & TOUCH UX OPTIMIZATIONS (MOBILE-FIRST)     */
+/* ============================================================== */
+@media (max-width: 768px) {
+  .page-content {
+    padding: 14px 12px 20px !important;
+  }
+
+  .topbar {
+    padding: 0 14px !important;
+    height: 56px !important;
+    gap: 8px !important;
+  }
+
+  .breadcrumb {
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .breadcrumb span {
+    display: none !important;
+  }
+
+  #topEngineBadge {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+    gap: 5px !important;
+  }
+
+  .scan-layout {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .scan-panel {
+    padding: 16px 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .tips-panel {
+    padding: 16px 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .mode-selection-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Modal Dialog Mobile Bottom Sheet / Centered Card */
+  .modal-overlay {
+    padding: 8px !important;
+  }
+
+  .modal-dialog-wrap {
+    max-height: 94vh !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+  }
+
+  /* Touch Targets >= 44px on Mobile */
+  .btn,
+  button.quick-pill,
+  button.gmail-cat-pill {
+    min-height: 38px !important;
+  }
+
+  .quick-samples {
+    gap: 6px !important;
+  }
+
+  .quick-pill {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  /* Prevent auto-zoom on mobile inputs in Safari / Chrome iOS */
+  textarea,
+  input[type="text"],
+  input[type="url"],
+  input[type="password"] {
+    font-size: 14px !important;
+  }
+
+  /* Responsive Terminal Inspector */
+  #analystTerminal {
+    font-size: 11px !important;
+  }
+
+  /* Responsive tables */
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
