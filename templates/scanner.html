@@ -326,8 +326,10 @@
     <!-- Email List Container -->
     <div id="modalEmailList" style="padding:14px 20px;min-height:280px;max-height:430px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;flex:1;">
       <div style="text-align:center;padding:30px 0;color:#64748b;font-size:12px;">
-        <span style="display:inline-block;animation:spin 1s linear infinite;margin-bottom:8px;">⏳</span><br>
-        Menghubungkan ke layanan Gmail...
+        <div class="spin-icon" style="margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        </div>
+        <div>Menghubungkan ke layanan Gmail...</div>
       </div>
     </div>
 
@@ -340,6 +342,31 @@
 </div>
 
 <style>
+@keyframes phisguard-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spin-icon,
+svg.spin-icon {
+  display: inline-block;
+  animation: phisguard-spin 0.85s linear infinite !important;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.spin-icon svg {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-icon,
+  svg.spin-icon {
+    animation: none !important;
+    opacity: 0.75;
+  }
+}
+
 .gmail-cat-pill {
   background: #f8fafc;
   border: 1px solid #cbd5e1;

@@ -211,6 +211,10 @@ document.addEventListener("DOMContentLoaded", () => {
       message.style.color = "#2e6659";
       button.disabled = true;
       button.style.opacity = ".7";
+      const btnText = document.getElementById("btnText");
+      if (btnText) {
+        btnText.innerHTML = `<span class="spin-icon" style="margin-right:6px;vertical-align:middle;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg></span><span>Menganalisis...</span>`;
+      }
 
       const startTime = Date.now();
       function getSec() {
@@ -356,6 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
         message.textContent = error.message + " Periksa menu Pengaturan.";
         button.disabled = false;
         button.style.opacity = "1";
+        if (btnText) btnText.textContent = "Mulai Analisis Keamanan";
         if (qwenThoughtText) qwenThoughtText.textContent = "Pemeriksaan terhenti karena kendala koneksi atau server.";
       }
     });

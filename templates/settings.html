@@ -249,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnTest && resultBox) {
     btnTest.addEventListener("click", async () => {
       btnTest.disabled = true;
-      btnTest.textContent = "Memeriksa...";
+      btnTest.innerHTML = `<span class="spin-icon" style="margin-right:6px;vertical-align:middle;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg></span><span>Memeriksa...</span>`;
       resultBox.style.display = "block";
       resultBox.style.background = "#f4fbf8";
       resultBox.style.border = "1px solid #c8e7d9";
