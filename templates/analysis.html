@@ -17,7 +17,7 @@
 
 {% if data and data.ml_result %}
 <!-- Box Info Target Utama -->
-<div class="panel" style="margin-bottom:20px;padding:18px;background:#fbfdfc;border-left:4px solid #1b4d3e;">
+<div class="panel" id="analysisBanner" data-engine-mode="{% if data.qwen_result and data.qwen_result.is_live_ollama %}hybrid{% elif data.qwen_result and data.qwen_result.engine_mode == 'fallback_mandiri' %}fallback{% else %}mandiri{% endif %}" data-model-name="{{ (data.qwen_result and data.qwen_result.source) or 'Qwen 2.5 7B' }}" style="margin-bottom:20px;padding:18px;background:#fbfdfc;border-left:4px solid #1b4d3e;">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <div>
       <span style="font-size:11px;font-weight:700;color:#2e6659;letter-spacing:0.5px;text-transform:uppercase;">ID INVESTIGASI: {{ data.analysis_id or 'PG-LIVE' }}</span>

@@ -12,6 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const topText = document.getElementById("topEngineText");
   const badgeModelName = document.getElementById("badgeModelName");
 
+  const radioHybrid = document.getElementById("scanModeHybrid");
+  const radioMandiri = document.getElementById("scanModeMandiri");
+  const labelHybrid = document.getElementById("labelModeHybrid");
+  const labelMandiri = document.getElementById("labelModeMandiri");
+
   async function updateTopEngineBadge() {
     try {
       const res = await fetch("/api/ollama-status");
@@ -24,17 +29,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!topBadge || !topDot || !topText) return;
 
-      if (!data.llm_enabled) {
-        // MODE MANDIRI MUTLAK DIPILIH PENGGUNA
+      // 1. Jika di halaman Result (/result) atau Analysis (/analysis), ikuti mode hasil laporan yang sedang dibuka
+      const resultBanner = document.getElementById("resultBanner") || document.getElementById("analysisBanner");
+      if (resultBanner) {
+        const reportMode = resultBanner.getAttribute("data-engine-mode");
+        const customModel = resultBanner.getAttribute("data-model-name") || globalModelName;
+        if (reportMode === "hybrid") {
+          topDot.style.background = "#10b981";
+          topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
+          topText.textContent = "Proteksi Hybrid Aktif";
+          topBadge.title = `Laporan diverifikasi oleh Dual-Engine: Supervised ML + ${customModel}.`;
+          topBadge.style.borderColor = "#a7f3d0";
+          topBadge.style.background = "#ecfdf5";
+          topBadge.style.color = "#065f46";
+          return;
+        } else if (reportMode === "fallback") {
+          topDot.style.background = "#f59e0b";
+          topDot.style.boxShadow = "0 0 0 2px rgba(245,158,11,0.25)";
+          topText.textContent = "Mandiri (LLM Offline)";
+          topBadge.title = "Laporan dialihkan ke Mode Mandiri karena server LLM offline.";
+          topBadge.style.borderColor = "#fde68a";
+          topBadge.style.background = "#fffbeb";
+          topBadge.style.color = "#92400e";
+          return;
+        } else {
+          topDot.style.background = "#64748b";
+          topDot.style.boxShadow = "0 0 0 2px rgba(100,116,139,0.25)";
+          topText.textContent = "Mode Mandiri (ML)";
+          topBadge.title = "Laporan diproses 100% oleh model Supervised Machine Learning.";
+          topBadge.style.borderColor = "#cbd5e1";
+          topBadge.style.background = "#f1f5f9";
+          topBadge.style.color = "#475569";
+          return;
+        }
+      }
+
+      // 2. Jika di halaman Scan (/scan), ikuti pilihan mode pengguna secara real-time
+      if (radioMandiri && radioMandiri.checked) {
         topDot.style.background = "#64748b";
         topDot.style.boxShadow = "0 0 0 2px rgba(100,116,139,0.25)";
         topText.textContent = "Mode Mandiri (ML)";
-        topBadge.title = "Mode Mandiri Aktif: Inferensi 100% diproses oleh model Supervised Machine Learning.";
+        topBadge.title = "Mode Mandiri Dipilih: Scan dieksekusi instan oleh Supervised ML tanpa memanggil LLM.";
         topBadge.style.borderColor = "#cbd5e1";
         topBadge.style.background = "#f1f5f9";
         topBadge.style.color = "#475569";
       } else if (data.status === "online") {
-        // MODE HYBRID AKTIF & LLM LIVE MERESPONS
         topDot.style.background = "#10b981";
         topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
         topText.textContent = "Proteksi Hybrid Aktif";
@@ -43,7 +82,6 @@ document.addEventListener("DOMContentLoaded", () => {
         topBadge.style.background = "#ecfdf5";
         topBadge.style.color = "#065f46";
       } else {
-        // MODE HYBRID AKTIF TAPI LLM MATI/OFFLINE -> FALLBACK MANDIRI
         topDot.style.background = "#f59e0b";
         topDot.style.boxShadow = "0 0 0 2px rgba(245,158,11,0.25)";
         topText.textContent = "Mandiri (LLM Offline)";
@@ -55,8 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const hybridNotice = document.getElementById("scannerHybridNotice");
       if (hybridNotice) {
-        const modeHybridRadio = document.getElementById("scanModeHybrid");
-        if (modeHybridRadio && modeHybridRadio.checked && data.status !== "online") {
+        if (radioHybrid && radioHybrid.checked && data.status !== "online") {
           hybridNotice.style.display = "block";
         } else {
           hybridNotice.style.display = "none";
@@ -66,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (topDot && topText && topBadge) {
         topDot.style.background = "#10b981";
         topDot.style.boxShadow = "0 0 0 2px rgba(16,185,129,0.25)";
-        topText.textContent = "Proteksi ML Siap";
+        topText.textContent = "Proteksi AI Aktif";
         topBadge.style.borderColor = "#a7f3d0";
         topBadge.style.background = "#ecfdf5";
         topBadge.style.color = "#065f46";
@@ -77,11 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
   updateTopEngineBadge();
 
   // Mode Selection Styling and State Tracking
-  const radioHybrid = document.getElementById("scanModeHybrid");
-  const radioMandiri = document.getElementById("scanModeMandiri");
-  const labelHybrid = document.getElementById("labelModeHybrid");
-  const labelMandiri = document.getElementById("labelModeMandiri");
-
   function updateModeCardStyles() {
     if (radioHybrid && radioMandiri && labelHybrid && labelMandiri) {
       if (radioHybrid.checked) {
@@ -107,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const urlInput = document.getElementById("urlInput");
   const emailInput = document.getElementById("emailInput");
 
-  // Restore drafts on load
+  // Restore drafts on load ONLY if user was in the middle of typing
   try {
     const savedUrl = sessionStorage.getItem("phisguard_draft_url");
     const savedEmail = sessionStorage.getItem("phisguard_draft_email");
@@ -118,9 +150,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (savedMode === "mandiri" && radioMandiri) {
       radioMandiri.checked = true;
       updateModeCardStyles();
+      updateTopEngineBadge();
     } else if (savedMode === "hybrid" && radioHybrid) {
       radioHybrid.checked = true;
       updateModeCardStyles();
+      updateTopEngineBadge();
     }
   } catch (e) {
     // SessionStorage unavailable or restricted
@@ -250,6 +284,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const data = await response.json();
+
+        // Bersihkan draft dari sessionStorage agar tidak nyangkut untuk scan berikutnya
+        try {
+          sessionStorage.removeItem("phisguard_draft_url");
+          sessionStorage.removeItem("phisguard_draft_email");
+        } catch (e) {}
 
         // Tampilkan keputusan final di terminal
         const qwenVerdict = data.qwen ? data.qwen.second_verdict : data.prediction;

@@ -88,20 +88,32 @@
 
       <!-- Form URL -->
       <div id="urlInputContainer">
-        <label for="urlInput">Alamat URL Tautan</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label for="urlInput" style="margin:0;font-weight:700;color:#183b32;font-size:12.5px;">Alamat URL Tautan</label>
+          <button type="button" onclick="clearUrlForm()" style="background:none;border:none;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;" title="Kosongkan kolom URL">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Bersihkan</span>
+          </button>
+        </div>
         <div class="url-input-wrap"><input id="urlInput" name="url" type="url" placeholder="https://contoh-website.com" style="padding-left:4px;"></div>
         <div class="quick-samples">
           <span class="quick-label">Contoh Cepat:</span>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://192.168.1.1/secure-update-login-account/verify.php';">Tautan Berbahaya (IP)</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('urlInput').value='http://secure-update-login-account.com/verify';">Tautan Phishing</button>
-          <button type="button" class="quick-pill" onclick="document.getElementById('urlInput').value='https://google.com';">Tautan Resmi</button>
+          <button type="button" class="quick-pill danger" onclick="setExampleUrl('http://192.168.1.1/secure-update-login-account/verify.php')">Tautan Berbahaya (IP)</button>
+          <button type="button" class="quick-pill danger" onclick="setExampleUrl('http://secure-update-login-account.com/verify')">Tautan Phishing</button>
+          <button type="button" class="quick-pill" onclick="setExampleUrl('https://google.com')">Tautan Resmi</button>
         </div>
       </div>
 
       <!-- Form Email -->
       <div id="emailInputContainer" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-          <label for="emailInput" style="margin:0;font-weight:700;color:#183b32;font-size:12.5px;">Isi Pesan Email</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label for="emailInput" style="margin:0;font-weight:700;color:#183b32;font-size:12.5px;">Isi Pesan Email</label>
+            <button type="button" onclick="clearEmailForm()" style="background:none;border:none;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;" title="Kosongkan isi teks email">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Bersihkan</span>
+            </button>
+          </div>
           
           <div style="display:flex;align-items:center;gap:8px;">
             {% if google_connected %}
@@ -140,11 +152,11 @@
         </div>
         <div class="quick-samples">
           <span class="quick-label">Contoh Cepat (ID & EN):</span>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='Peringatan: Akun BCA Mobile Anda terkunci. Klik tautan berikut untuk verifikasi identitas dan buka blokir rekening Anda segera.';">Phishing BCA (ID)</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='Paket SiCepat Express gagal dikirimkan. Unduh file resi konfirmasi alamat paket apk untuk pengantaran ulang kurir.';">Penipuan APK Kurir (ID)</button>
-          <button type="button" class="quick-pill danger" onclick="document.getElementById('emailInput').value='URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.';">Akun Ditutup (EN)</button>
-          <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Selamat pagi tim, mohon kirimkan update progress sprint review dan kendala blocking sebelum jam 5 sore untuk standup.';">Email Kantor Normal (ID)</button>
-          <button type="button" class="quick-pill" onclick="document.getElementById('emailInput').value='Hi Team, please find attached the meeting notes from yesterday. Let me know if you have any questions.';">Email Kerja Normal (EN)</button>
+          <button type="button" class="quick-pill danger" onclick="setExampleEmail('Peringatan: Akun BCA Mobile Anda terkunci. Klik tautan berikut untuk verifikasi identitas dan buka blokir rekening Anda segera.')">Phishing BCA (ID)</button>
+          <button type="button" class="quick-pill danger" onclick="setExampleEmail('Paket SiCepat Express gagal dikirimkan. Unduh file resi konfirmasi alamat paket apk untuk pengantaran ulang kurir.')">Penipuan APK Kurir (ID)</button>
+          <button type="button" class="quick-pill danger" onclick="setExampleEmail('URGENT: Your account has been suspended! Please click here to reset your password immediately or your access will be permanently terminated.')">Akun Ditutup (EN)</button>
+          <button type="button" class="quick-pill" onclick="setExampleEmail('Selamat pagi tim, mohon kirimkan update progress sprint review dan kendala blocking sebelum jam 5 sore untuk standup.')">Email Kantor Normal (ID)</button>
+          <button type="button" class="quick-pill" onclick="setExampleEmail('Hi Team, please find attached the meeting notes from yesterday. Let me know if you have any questions.')">Email Kerja Normal (EN)</button>
         </div>
       </div>
 
@@ -166,7 +178,10 @@
           <label id="labelModeHybrid" style="display:flex;flex-direction:column;gap:4px;border:1.5px solid #10b981;background:#f0fdf4;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s ease;">
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="radio" name="scanMode" id="scanModeHybrid" value="hybrid" checked style="accent-color:#10b981;">
-              <span style="font-size:12.5px;font-weight:700;color:#065f46;">🛡️ Mode Hybrid</span>
+              <span style="font-size:12.5px;font-weight:700;color:#065f46;display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Mode Hybrid</span>
+              </span>
             </div>
             <span style="font-size:11px;color:#4b5563;line-height:1.4;">
               Supervised ML + Verifikasi Live Web & LLM (<span class="dyn-model-name">{{ config_model }}</span>). Analisis mendalam & komprehensif.
@@ -177,7 +192,10 @@
           <label id="labelModeMandiri" style="display:flex;flex-direction:column;gap:4px;border:1.5px solid #e2e8f0;background:#ffffff;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s ease;">
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="radio" name="scanMode" id="scanModeMandiri" value="mandiri" style="accent-color:#10b981;">
-              <span style="font-size:12.5px;font-weight:700;color:#1f2937;">⚡ Mode Mandiri</span>
+              <span style="font-size:12.5px;font-weight:700;color:#1f2937;display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Mode Mandiri</span>
+              </span>
             </div>
             <span style="font-size:11px;color:#4b5563;line-height:1.4;">
               Supervised ML Murni. Ekstra cepat (&lt;50ms), tanpa panggil LLM eksternal. Ideal saat kuota atau koneksi offline.
@@ -656,7 +674,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn = document.querySelector("#btnLoadMoreContainer button");
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<span style="display:inline-block;animation:spin 1s linear infinite;">⏳</span> Mengambil pesan berikutnya...`;
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-icon" style="display:inline-block;vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Mengambil pesan berikutnya...`;
     }
 
     try {
@@ -700,8 +718,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     emailList.innerHTML = `
       <div style="text-align:center;padding:36px 0;color:#64748b;font-size:12px;">
-        <span style="font-size:22px;display:block;margin-bottom:8px;">⏳</span>
-        Mengambil pesan kotak masuk...
+        <div class="spin-icon" style="display:inline-block;margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        </div>
+        <div>Mengambil pesan kotak masuk...</div>
       </div>
     `;
     if (countInfo) countInfo.textContent = "Memuat daftar email...";
@@ -758,8 +778,10 @@ document.addEventListener("DOMContentLoaded", () => {
   async function selectEmail(msgId) {
     emailList.innerHTML = `
       <div style="text-align:center;padding:36px 0;color:#0f766e;font-size:12px;">
-        <span style="font-size:22px;display:block;margin-bottom:8px;">📥</span>
-        Mengekstrak isi pesan dan tautan tersemat...
+        <div class="spin-icon" style="display:inline-block;margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+        </div>
+        <div>Mengekstrak isi pesan dan tautan tersemat...</div>
       </div>
     `;
 
@@ -771,6 +793,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if ((result.success || content) && content) {
         emailInput.value = content;
+        try {
+          sessionStorage.setItem("phisguard_draft_email", content);
+        } catch (e) {}
+        emailInput.dispatchEvent(new Event("input", { bubbles: true }));
         closeGmailModal();
         switchToEmail();
         
@@ -817,6 +843,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  window.clearEmailForm = function() {
+    if (emailInput) {
+      emailInput.value = "";
+      try { sessionStorage.removeItem("phisguard_draft_email"); } catch (e) {}
+      emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      emailInput.focus();
+    }
+  };
+
+  window.clearUrlForm = function() {
+    if (urlInput) {
+      urlInput.value = "";
+      try { sessionStorage.removeItem("phisguard_draft_url"); } catch (e) {}
+      urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+      urlInput.focus();
+    }
+  };
+
+  window.setExampleEmail = function(text) {
+    if (emailInput) {
+      emailInput.value = text;
+      try { sessionStorage.setItem("phisguard_draft_email", text); } catch (e) {}
+      emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      emailInput.focus();
+    }
+  };
+
+  window.setExampleUrl = function(url) {
+    if (urlInput) {
+      urlInput.value = url;
+      try { sessionStorage.setItem("phisguard_draft_url", url); } catch (e) {}
+      urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+      urlInput.focus();
+    }
+  };
 
   function escapeHtml(str) {
     if (!str) return "";

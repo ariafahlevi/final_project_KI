@@ -21,7 +21,11 @@
 </div>
 
 <!-- 1. Banner Status Utama (High Contrast) -->
-<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else 'safe-banner' }}" style="margin-bottom:20px;border-radius:10px;padding:18px 22px;">
+<div class="result-banner {{ 'danger-banner' if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') else 'safe-banner' }}" 
+     id="resultBanner"
+     data-engine-mode="{% if result.qwen and result.qwen.is_live_ollama %}hybrid{% elif result.qwen and result.qwen.engine_mode == 'fallback_mandiri' %}fallback{% else %}mandiri{% endif %}"
+     data-model-name="{{ (result.qwen and result.qwen.source) or result.model_name }}"
+     style="margin-bottom:20px;border-radius:10px;padding:18px 22px;">
   <div class="result-symbol" style="border-radius:8px;font-size:18px;width:42px;height:42px;display:grid;place-items:center;flex-shrink:0;">
     {% if result.prediction == 'phishing' or (result.qwen and result.qwen.second_verdict == 'phishing') %}
       <span style="font-weight:900;">!</span>

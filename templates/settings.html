@@ -30,17 +30,21 @@
       <div style="margin-top:14px;background:#f8fafc;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;">
         <span style="font-size:11px;font-weight:700;color:#475569;display:block;margin-bottom:6px;">PILIHAN PRESET CEPAT:</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button type="button" class="btn" onclick="applyPreset('ollama_local')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
-            💻 Ollama Lokal (11434)
+          <button type="button" class="btn" onclick="applyPreset('ollama_local')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span>Ollama Lokal (11434)</span>
           </button>
-          <button type="button" class="btn" onclick="applyPreset('ollama_tunnel')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
-            🌐 Tunneling Ngrok
+          <button type="button" class="btn" onclick="applyPreset('ollama_tunnel')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>Tunneling Ngrok</span>
           </button>
-          <button type="button" class="btn" onclick="applyPreset('cloud_groq')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
-            ⚡ Groq Cloud (Cepat)
+          <button type="button" class="btn" onclick="applyPreset('cloud_groq')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Groq Cloud (Cepat)</span>
           </button>
-          <button type="button" class="btn" onclick="applyPreset('cloud_openrouter')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">
-            🤖 OpenRouter API
+          <button type="button" class="btn" onclick="applyPreset('cloud_openrouter')" style="background:#ffffff;border:1px solid #cbd5e1;color:#1e293b;font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+            <span>OpenRouter API</span>
           </button>
         </div>
       </div>
@@ -81,8 +85,8 @@
         <label for="apiKey" style="display:block;font-size:12px;font-weight:700;color:#2e6659;margin-bottom:6px;">API Key (Bearer Token)</label>
         <div style="position:relative;">
           <input type="password" id="apiKey" name="api_key" value="{{ api_key or '' }}" placeholder="gsk_... / sk-or-... / sk-..." style="width:100%;padding:10px 38px 10px 14px;border:1px solid #c8e0d5;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
-          <button type="button" onclick="togglePasswordVisibility('apiKey')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:13px;" title="Lihat / Sembunyikan">
-            👁️
+          <button type="button" onclick="togglePasswordVisibility('apiKey')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex;align-items:center;padding:2px;" title="Lihat / Sembunyikan Kunci API">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
         <small class="muted" style="font-size:11px;display:block;margin-top:4px;">
@@ -245,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnTest && resultBox) {
     btnTest.addEventListener("click", async () => {
       btnTest.disabled = true;
-      btnTest.textContent = "⏳ Memeriksa...";
+      btnTest.textContent = "Memeriksa...";
       resultBox.style.display = "block";
       resultBox.style.background = "#f4fbf8";
       resultBox.style.border = "1px solid #c8e7d9";
