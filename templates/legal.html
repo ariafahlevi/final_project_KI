@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — PhisGuard AI{% endblock %}
+{% block crumb %}{{ crumb }}{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:860px;margin:0 auto 30px;padding:32px 36px;border-radius:12px;background:#ffffff;line-height:1.7;color:#334155;">
+  <div style="border-bottom:1px solid #e2e8f0;padding-bottom:16px;margin-bottom:24px;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;margin-bottom:8px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>DOKUMEN RESMI PHISGUARD AI</span>
+    </div>
+    <h1 style="margin:0 0 6px 0;font-size:24px;font-weight:800;color:#183b32;">{{ title }}</h1>
+    <small class="muted" style="font-size:12px;color:#64748b;">Terakhir diperbarui: 19 November 2026 | Versi 2.1</small>
+  </div>
+
+  {% if page_type == 'privacy' %}
+  <!-- KEBIJAKAN PRIVASI -->
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">1. Komitmen Privasi Pengguna</h3>
+    <p style="font-size:13px;">PhisGuard AI ("kami") menghormati privasi Anda dan berkomitmen melindungi data pribadi pengguna saat menggunakan sistem deteksi phishing dan analisis keamanan email berbasis kecerdasan buatan.</p>
+  </section>
+
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">2. Data yang Diakses Melalui Google OAuth (Gmail API)</h3>
+    <p style="font-size:13px;">Saat Anda menghubungkan akun Google Anda melalui izin <code>https://www.googleapis.com/auth/gmail.readonly</code>:</p>
+    <ul style="font-size:13px;padding-left:20px;">
+      <li><b>Hanya Baca (Read-Only):</b> PhisGuard hanya membaca metadata email (subjek, pengirim, tanggal, dan cuplikan teks) untuk diuji risikonya. Kami <b>TIDAK BISA</b> mengirim, mengedit, atau menghapus email Anda.</li>
+      <li><b>Pemrosesan di Memori (In-Memory Inspection):</b> Pesan email hanya diurai secara sementara untuk ekstraksi tautan URL dan fitur teks statistik phishing.</li>
+      <li><b>Kepatuhan Google API Services User Data Policy:</b> Penggunaan data yang diterima dari Google API oleh PhisGuard mematuhi Kebijakan Data Pengguna Layanan Google API, termasuk persyaratan <i>Limited Use</i>.</li>
+    </ul>
+  </section>
+
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">3. Perlindungan & Larangan Penjualan Data</h3>
+    <p style="font-size:13px;">Kami <b>TIDAK PERNAH</b> menjual, menyewakan, membagikan, atau menggunakan konten email pribadi Anda untuk keperluan periklanan, pemasaran, atau pelatihan model pihak ketiga tanpa persetujuan eksplisit Anda.</p>
+  </section>
+
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">4. Pemutusan Hubungan Akun</h3>
+    <p style="font-size:13px;">Anda dapat memutuskan integrasi Google kapan saja melalui tombol "Putus" di halaman Scan Keamanan atau melalui menu <i>Google Account Security Settings -> Third-party apps with account access</i>.</p>
+  </section>
+
+  <section>
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">5. Kontak Pengembang</h3>
+    <p style="font-size:13px;">Pertanyaan terkait privasi data dapat dialamatkan ke email pengembang resmi di: <a href="mailto:fathirrf80@gmail.com" style="color:#10b981;font-weight:600;">fathirrf80@gmail.com</a>.</p>
+  </section>
+
+  {% else %}
+  <!-- KETENTUAN LAYANAN (TERMS OF SERVICE) -->
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">1. Ketentuan Penggunaan</h3>
+    <p style="font-size:13px;">Dengan mengakses dan menggunakan sistem PhisGuard AI, Anda menyetujui ketentuan layanan ini. Layanan ini dirancang sebagai instrumen asistensi pertahanan siber untuk mendeteksi indikasi rekayasa sosial dan penipuan phishing.</p>
+  </section>
+
+  <section style="margin-bottom:24px;">
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">2. Batasan Tanggung Jawab</h3>
+    <p style="font-size:13px;">Keputusan klasifikasi dihasilkan oleh kombinasi algoritma Supervised Machine Learning dan evaluasi model bahasa. Meskipun sistem dirancang dengan akurasi tinggi, pengguna tetap dihimbau berhati-hati dan tidak membagikan kredensial rahasia pada situs mencurigakan apapun hasil evaluasi sistem.</p>
+  </section>
+
+  <section>
+    <h3 style="color:#183b32;font-size:16px;margin-bottom:8px;">3. Kontak</h3>
+    <p style="font-size:13px;">Untuk informasi lebih lanjut mengenai ketentuan layanan, hubungi: <a href="mailto:fathirrf80@gmail.com" style="color:#10b981;font-weight:600;">fathirrf80@gmail.com</a>.</p>
+  </section>
+  {% endif %}
+
+  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+    <a href="{{ url_for('scanner') }}" class="btn" style="background:#1b4d3e;color:#ffffff;padding:8px 16px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;">&larr; Kembali ke Scan Keamanan</a>
+    <span style="font-size:11px;color:#94a3b8;">PhisGuard Defensive Engine &copy; 2026</span>
+  </div>
+</div>
+{% endblock %}

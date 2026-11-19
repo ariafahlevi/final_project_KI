@@ -541,6 +541,16 @@ def settings():
         stats=stats
     )
 
+@app.get("/privacy")
+def privacy_policy():
+    """Halaman Kebijakan Privasi Resmi untuk Persyaratan Google OAuth & Verifikasi Publik."""
+    return render_template("legal.html", title="Kebijakan Privasi", crumb="Kebijakan Privasi", page_type="privacy")
+
+@app.get("/terms")
+def terms_of_service():
+    """Halaman Ketentuan Layanan Resmi untuk Persyaratan Google OAuth & Verifikasi Publik."""
+    return render_template("legal.html", title="Ketentuan Layanan", crumb="Ketentuan Layanan", page_type="terms")
+
 @app.post("/settings/save")
 def save_settings():
     """Menyimpan seluruh konfigurasi sistem (Provider, Endpoint, Model, API Key, Sensitivitas)."""
